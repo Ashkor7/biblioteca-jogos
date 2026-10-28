@@ -1,24 +1,34 @@
+# Dependências e builds
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+
+# Ambiente e segredos — nunca versionar
+.env
+.env.*
+!.env.example
+
+# Uploads de imagens (dados do usuário)
+server/uploads/*
+!server/uploads/.gitkeep
+
 # Logs
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Pacotes git usados para transferir o histórico
+*.bundle
 
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
+
+# PostgreSQL embutido (npm run db:embedded)
+.pgdata
