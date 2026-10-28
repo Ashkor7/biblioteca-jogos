@@ -1,0 +1,140 @@
+// Biblioteca de Jogos — modelo de dados (PostgreSQL + Prisma)
+// Restrições extras que o Prisma não expressa (CHECKs e índices parciais)
+// estão na migração inicial: veja migrations/*_init/migration.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OwnershipStatus {
+  OWNED
+  WISHLIST
+}
+
+enum MediaType {
+  PHYSICAL
+  DIGITAL
+}
+
+enum PlayStatus {
+  NOT_STARTED
+  COMPLETED
+  ABANDONED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  games        Game[]
+}
+
+/// Criada automaticamente quando um jogo referencia uma plataforma nova.
+model Platform {
+  id             String              @id @default(uuid()) @db.Uuid
+  name           String              @db.VarChar(60)
+  normalizedName String              @unique @db.VarChar(60)
+  slug           String              @unique @db.VarChar(80)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  games          Game[]
+  slugAliases    PlatformSlugAlias[]
+}
+
+/// Slugs antigos de plataformas renomeadas: /plataformas/<antigo> redireciona.
+model PlatformSlugAlias {
+  slug       String   @id @db.VarChar(80)
+  platformId String   @db.Uuid
+  platform   Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([platformId])
+}
+
+/// Loja/vendedor onde o jogo foi comprado (Steam, Nuuvem, Instant Gaming...).
+model Store {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @db.VarChar(60)
+  normalizedName String   @unique @db.VarChar(60)
+  createdAt      DateTime @default(now())
+  games          Game[]
+}
+
+model Category {
+  id             String         @id @default(uuid()) @db.Uuid
+  name           String         @db.VarChar(40)
+  normalizedName String         @unique @db.VarChar(40)
+  createdAt      DateTime       @default(now())
+  games          GameCategory[]
+}
+
+model Game {
+  id                 String          @id @default(uuid()) @db.Uuid
+  ownerId            String          @db.Uuid
+  owner              User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title              String          @db.VarChar(160)
+  platformId         String          @db.Uuid
+  platform           Platform        @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  ownershipStatus    OwnershipStatus
+  mediaType          MediaType?
+  originalPrice      Decimal?        @db.Decimal(12, 2)
+  paidPrice          Decimal?        @db.Decimal(12, 2)
+  currentWishPrice   Decimal?        @db.Decimal(12, 2)
+  wishPriceUpdatedAt DateTime?
+  storeId            String?         @db.Uuid
+  store              Store?          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  purchasedAt        DateTime?
+  playStatus         PlayStatus      @default(NOT_STARTED)
+  playTimeMinutes    Int             @default(0)
+  ratingStars        Int?            @db.SmallInt
+  reviewText         String?
+  isFeatured         Boolean         @default(false)
+  /// true para registros importados que ainda precisam de preço pago/loja.
+  needsReview        Boolean         @default(false)
+  /// id do registro na versão antiga (localStorage) — evita importar duas vezes.
+  legacyId           String?         @db.VarChar(64)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  categories         GameCategory[]
+  images             GameImage[]
+
+  @@unique([ownerId, legacyId])
+  @@index([ownerId, ownershipStatus])
+  @@index([platformId])
+  @@index([storeId])
+  @@index([ownerId, title])
+}
+
+model GameCategory {
+  gameId     String   @db.Uuid
+  categoryId String   @db.Uuid
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([gameId, categoryId])
+  @@index([categoryId])
+}
+
+model GameImage {
+  id         String   @id @default(uuid()) @db.Uuid
+  gameId     String   @db.Uuid
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  /// URL pública (/uploads/<arquivo> ou https:// externa)
+  url        String   @db.VarChar(2048)
+  /// Nome do arquivo gerado no servidor; null para imagem externa.
+  storageKey String?  @unique @db.VarChar(80)
+  mimeType   String?  @db.VarChar(40)
+  sizeBytes  Int?
+  altText    String?  @db.VarChar(200)
+  isCover    Boolean  @default(false)
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([gameId, position])
+}
