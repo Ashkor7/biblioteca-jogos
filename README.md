@@ -129,6 +129,10 @@ A senha precisa ter pelo menos 10 caracteres. Rodar o comando de novo com o mesm
 
 ### 5. Iniciar
 
+**Atalho de um clique (Windows):** dê duplo clique em `abrir-biblioteca.cmd`, na raiz do projeto. Ele abre três janelas (banco embutido, API e página) e abre a biblioteca no navegador sozinho. Para ter isso na área de trabalho, clique com o botão direito no arquivo › **Mostrar mais opções** › **Enviar para** › **Área de trabalho (criar atalho)**. Para encerrar, feche as três janelas.
+
+Ou, pelo terminal:
+
 ```powershell
 npm run dev
 ```
