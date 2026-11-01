@@ -9,13 +9,23 @@ const bool = (fallback) =>
     .optional()
     .transform((v) => (v === undefined ? fallback : v === 'true' || v === '1'));
 
+// Textos de exemplo do .env.example: nunca podem valer como segredo de verdade.
+const PLACEHOLDER_RE = /troque|change[-_ ]?me/i;
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3333),
+  // Endereço em que a API escuta. Sem HOST: só o próprio computador (127.0.0.1)
+  // em desenvolvimento; todas as interfaces (0.0.0.0) em produção.
+  HOST: z.string().min(1).optional(),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL não definida (veja .env.example)'),
   SESSION_SECRET: z
     .string({ error: 'SESSION_SECRET não definida (veja .env.example)' })
-    .min(32, 'SESSION_SECRET precisa ter pelo menos 32 caracteres'),
+    .min(32, 'SESSION_SECRET precisa ter pelo menos 32 caracteres')
+    .refine(
+      (v) => !PLACEHOLDER_RE.test(v),
+      'SESSION_SECRET ainda é o texto de exemplo do .env.example. Gere um segredo com: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"',
+    ),
   SESSION_TTL_HOURS: z.coerce.number().positive().default(168),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
   PUBLIC_READ: bool(false),
@@ -38,6 +48,7 @@ function loadConfig() {
   return {
     ...env,
     isProduction: env.NODE_ENV === 'production',
+    host: env.HOST ?? (env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1'),
     isTest: env.NODE_ENV === 'test',
     allowedOrigins: env.CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
     cookieSecure: env.COOKIE_SECURE === 'auto' ? env.NODE_ENV === 'production' : env.COOKIE_SECURE === 'true',
@@ -47,3 +58,4 @@ function loadConfig() {
 }
 
 export const config = loadConfig();
+export { PLACEHOLDER_RE };

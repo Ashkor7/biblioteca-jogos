@@ -3,7 +3,6 @@
 **Versão:** 1.0 · **Data:** 28/10/2026  
 **Projeto:** Biblioteca de Jogos — evolução full-stack / interface cyberpunk  
 **Repositório:** https://github.com/Ashkor7/biblioteca-jogos  
-**Pasta local do Windows:** `C:\Users\Ashkor\Documents\SENAC\2 SEMESTRE programacao web edecio\biblioteca-jogos`
 
 > **Objetivo:** transformar a aplicação React existente em uma biblioteca pessoal de jogos completa, com persistência em banco de dados no servidor, páginas de plataformas criadas dinamicamente, lista de desejos separada, gerenciamento detalhado de cada jogo, estatísticas financeiras/de uso e uma interface cyberpunk original, responsiva e acessível. **Não entregar apenas mockups:** implementar, executar, testar e preparar publicação no GitHub.
 

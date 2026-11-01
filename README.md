@@ -152,7 +152,8 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 | `TEST_DATABASE_URL` | `DATABASE_URL` + `_test` | Banco usado (e apagado) pelos testes. O nome precisa conter “test” |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_PORT` | `biblioteca` / — / `biblioteca_jogos` / `5433` | Contêiner do Docker Compose |
 | `PORT` | `3333` | Porta da API |
-| `SESSION_SECRET` | — | Assina o cookie de sessão (mínimo de 32 caracteres) |
+| `HOST` | `127.0.0.1` (dev) / `0.0.0.0` (produção) | Onde a API escuta; por padrão, em desenvolvimento, só o próprio computador acessa |
+| `SESSION_SECRET` | — | Assina o cookie de sessão (mínimo de 32 caracteres); o servidor não inicia com o texto de exemplo |
 | `SESSION_TTL_HOURS` | `168` | Duração da sessão |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | Origens aceitas em CORS e na checagem de `Origin` |
 | `PUBLIC_READ` | `false` | `true` deixa visitantes **verem** a coleção, sem poder alterar nada |

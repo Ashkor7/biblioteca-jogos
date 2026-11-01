@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../db.js';
 import { AppError } from '../lib/errors.js';
+import { PLACEHOLDER_RE } from '../config.js';
 
 const BCRYPT_COST = 12;
 // Hash usado quando o e-mail não existe, para o tempo de resposta não revelar contas.
@@ -22,6 +23,9 @@ export async function verifyCredentials(email, password) {
 export async function upsertOwner(email, password) {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('E-mail inválido');
   if (!password || password.length < 10) throw new Error('A senha precisa ter pelo menos 10 caracteres');
+  if (PLACEHOLDER_RE.test(password)) {
+    throw new Error('Essa é a senha de exemplo do .env.example. Escolha uma senha sua.');
+  }
   const passwordHash = await hashPassword(password);
   return prisma.user.upsert({
     where: { email: email.toLowerCase() },

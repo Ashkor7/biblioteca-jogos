@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { moneyToCents, normalizeKey, slugify, hoursToMinutes } from '../../shared/domain.js';
 import { detectImageType } from '../src/lib/storage.js';
-import { PNG } from './helpers.js';
+import { PNG, prisma } from './helpers.js';
+import { upsertOwner } from '../src/services/authService.js';
+import { PLACEHOLDER_RE } from '../src/config.js';
 
 describe('regras de domínio', () => {
   it('converte valores monetários sem float', () => {
@@ -28,5 +30,11 @@ describe('regras de domínio', () => {
     expect(detectImageType(PNG)).toEqual({ ext: 'png', mime: 'image/png' });
     expect(detectImageType(Buffer.from('GIF89a-----------'))).toEqual({ ext: 'gif', mime: 'image/gif' });
     expect(detectImageType(Buffer.from('não é uma imagem'))).toBeNull();
+  });
+  it('recusa os textos de exemplo do .env.example como segredo ou senha', async () => {
+    expect(PLACEHOLDER_RE.test('troque-por-um-segredo-aleatorio-com-pelo-menos-32-caracteres')).toBe(true);
+    expect(PLACEHOLDER_RE.test('a3f9c1d27e6b')).toBe(false);
+    await expect(upsertOwner('dono@biblioteca.test', 'troque-esta-senha-forte')).rejects.toThrow(/senha de exemplo/);
+    await prisma.$disconnect();
   });
 });
