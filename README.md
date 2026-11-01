@@ -295,6 +295,12 @@ $env:NODE_ENV="production"; npm start   # API + frontend na mesma porta (PORT)
 - `server/uploads` precisa ser um **volume persistente**: hospedagens com disco efêmero apagam as imagens ao reiniciar. Outra saída é trocar `server/src/lib/storage.js` por um serviço de objetos (S3, R2…).
 - Defina `TRUST_PROXY=true` atrás de proxy, `CLIENT_ORIGIN` com o domínio real e um `SESSION_SECRET` forte.
 
+## Continuar o desenvolvimento
+
+- `CLAUDE.md`: regras do projeto para agentes de IA (lido automaticamente pelo Claude Code).
+- `docs/CONTEXTO_DO_PROJETO.md`: estado atual, ambiente, pendências e ideias.
+- `docs/PROMPT_NOVA_SESSAO.md`: prompt pronto para começar uma nova sessão de atualizações.
+
 ## Decisões de arquitetura
 
 - **Frontend continua na raiz e a API em `server/`** (workspaces do npm). Assim o projeto Vite original foi preservado, sem duplicar configuração. Os scripts da raiz orquestram os dois lados.
