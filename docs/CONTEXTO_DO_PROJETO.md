@@ -3,7 +3,7 @@
 Documento de passagem: o que já existe, como o ambiente do dono está montado, o que ficou pendente
 e como pedir as próximas atualizações. Atualize este arquivo ao fim de cada sessão de trabalho.
 
-**Última atualização:** 01/11/2026 · **Commit de referência:** `4fbe922` (branch `main`)
+**Última atualização:** 09/11/2026 · **Versão:** 3.0 (Player Hub) na branch `feature/player-hub-v3` (ainda não mesclada em `main`)
 
 ## 1. Histórico resumido
 
@@ -16,6 +16,7 @@ e como pedir as próximas atualizações. Atualize este arquivo ao fim de cada s
 | `4778df9` | README completo |
 | `662ced6` | Atalho `abrir-biblioteca.cmd` |
 | `4fbe922` | Segurança: recusa segredos de exemplo, API só local por padrão, spec sem caminho pessoal |
+| `6719e49`…`85f04a9` | **3.0 Player Hub** (branch `feature/player-hub-v3`): backup lógico, migração `player_hub_v3`, API de perfil/diário/coleções/gamificação/finanças/perfil público, redesign da interface, correções do `npm audit` e documentação |
 
 A especificação original que guiou o trabalho está em `docs/ESPECIFICACAO_BIBLIOTECA_JOGOS_CYBERPUNK.md`.
 
@@ -33,6 +34,19 @@ A especificação original que guiou o trabalho está em `docs/ESPECIFICACAO_BIB
 - [x] Destaque (um por vez) e exclusão com confirmação, herdados da versão antiga
 - [x] Mobile-first (testado em 360 px), teclado, foco visível, `prefers-reduced-motion`
 - [x] Testes: 54 da API (fluxos A–I) + 14 da interface; lint e build sem erros
+
+### 3.0 — Player Hub (detalhes em `docs/PLAYER_HUB.md`)
+
+- [x] Perfil com foto, banner, nome, @usuário, bio, nível/XP, título desbloqueável, estatísticas, finanças privadas e ranking de lojas
+- [x] XP por livro-razão idempotente, curva de níveis, 17 conquistas, 9 títulos, limites anti-repetição, processamento retroativo sem duplicar
+- [x] Favoritos múltiplos ordenados (destaque único mantido), coleções com capa/ordem/visibilidade, metas com progresso real, histórico de atividades
+- [x] Estado "Jogando"; diário de sessões com saldo legado de horas (sem duplicação), calendário e resumos
+- [x] Lista de desejos: preço-alvo, prioridade, loja preferida, notas, histórico manual de preços, conversão no mesmo registro
+- [x] Dashboard financeiro 2.0 (mês/ano, acumulado, sem data, lojas, plataformas, maiores economias, filtros)
+- [x] Perfil público `/u/:username` com allowlist no servidor, prévia do dono; `PUBLIC_READ` desativado
+- [x] Redesign completo, navegação nova (lateral + barra inferior no celular), sem rolagem horizontal em 360 px
+- [x] Testes: 113 da API + 22 da interface; `npm run check` passando
+- [x] Banco real do dono migrado em 09/11/2026 após backup (`backups/biblioteca-2026-11-09T23-33-45.json`), conferido com `verify-migration.js`
 
 ## 3. Ambiente do dono (Windows)
 
@@ -55,18 +69,20 @@ A especificação original que guiou o trabalho está em `docs/ESPECIFICACAO_BIB
 
 - **Docker/PostgreSQL nativo** não foram testados no PC do dono (só o modo embutido). O `docker-compose.yml` foi escrito, mas não executado.
 - **Produção/deploy** não foi feito. Para publicar: banco gerenciado, `UPLOAD_DIR` em volume persistente (ou trocar `server/src/lib/storage.js` por S3/R2), `NODE_ENV=production`, `TRUST_PROXY=true`, `CLIENT_ORIGIN` com o domínio, `SESSION_SECRET` forte.
-- **`npm audit`** aponta 6 vulnerabilidades altas em dependências de terceiros (não tratadas).
+- **`npm audit`**: corrigido o que não exigia versão maior (Vite 8.3.7, Zod 4.6.7). Restam avisos em ferramentas de desenvolvimento que só somem com versão maior: `deepmerge-ts` (CLI do Prisma 6 → exigiria Prisma 7) e `minimatch` (ESLint).
+- **Testes E2E com Playwright** não foram automatizados no repositório (exigiriam instalar `@playwright/test` e navegadores). A 3.0 foi conferida manualmente com Playwright num banco de demonstração separado.
+- **Datas de conclusão antigas**: jogos zerados antes da 3.0 não têm `completedAt`; para contarem em metas do ano, edite o jogo e informe "Zerado em".
+- Depois de atualizar, é preciso **reiniciar a API**: com a API antiga aberta, o Windows trava o arquivo do Prisma e o `npm install` falha no `prisma generate`.
 - **Histórico do Git** contém, nos commits antigos, o caminho da pasta local do Windows na especificação. O dono decidiu manter (o e-mail dos commits também é público por escolha dele).
 - A imagem `public/Biblioteca de Jogos Gamer.png` (logo original) aparece só no README: o texto escuro dela não tem contraste no tema escuro.
 - O orquestrador `logs/run.mjs` e os `.cmd` em `logs/` foram ferramentas da configuração assistida; a pasta `logs/` é ignorada pelo Git e pode ser apagada (contém uma senha antiga).
 
 ## 5. Ideias de próximas atualizações (fora do escopo já entregue)
 
-- Linha do tempo de compras e gastos por mês/ano (dados já existem em `purchasedAt`)
 - Exportar/importar CSV ou JSON e backup do banco
-- Histórico de preços da lista de desejos (sem alegar coleta automática)
-- Conquistas pessoais / metas (ex.: zerar X jogos no ano)
-- Modo visitante somente leitura para compartilhar a coleção (já existe `PUBLIC_READ=true`; falta UI de convite)
+- Arrastar e soltar para ordenar favoritos e coleções (hoje há botões subir/descer, acessíveis por teclado)
+- Testes E2E automatizados (`@playwright/test`) para os fluxos principais
+- Exportar o histórico de XP e atividades
 - Deploy (Render/Railway/Fly) com banco gerenciado e armazenamento de imagens
 - Paginação infinita ou virtualização para bibliotecas grandes
 - Testes E2E automatizados no navegador (Playwright)
