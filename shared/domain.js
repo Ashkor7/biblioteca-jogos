@@ -5,14 +5,29 @@ export const OWNERSHIP = Object.freeze({ OWNED: 'OWNED', WISHLIST: 'WISHLIST' })
 export const MEDIA = Object.freeze({ PHYSICAL: 'PHYSICAL', DIGITAL: 'DIGITAL' });
 export const PLAY_STATUS = Object.freeze({
   NOT_STARTED: 'NOT_STARTED',
+  PLAYING: 'PLAYING',
   COMPLETED: 'COMPLETED',
   ABANDONED: 'ABANDONED',
 });
 
 export const PLAY_STATUS_LABELS = Object.freeze({
   NOT_STARTED: 'Não iniciado',
+  PLAYING: 'Jogando',
   COMPLETED: 'Zerado',
   ABANDONED: 'Abandonado',
+});
+
+export const WISH_PRIORITY_LABELS = Object.freeze({
+  HIGH: 'Alta',
+  MEDIUM: 'Média',
+  LOW: 'Baixa',
+});
+
+export const GOAL_TYPE_LABELS = Object.freeze({
+  COMPLETE_GAMES: 'Zerar jogos',
+  PLAY_HOURS: 'Jogar horas (diário)',
+  COMPLETE_CATEGORY: 'Zerar jogos de uma categoria',
+  COMPLETE_BACKLOG: 'Zerar jogos que já estavam no acervo',
 });
 
 export const MEDIA_LABELS = Object.freeze({
@@ -35,7 +50,22 @@ export const LIMITS = Object.freeze({
   reviewMax: 5000,
   priceMaxCents: 999_999_999_99, // DECIMAL(12,2)
   playTimeMaxMinutes: 1_000_000 * 60,
+  sessionMaxMinutes: 24 * 60,
+  sessionNotesMax: 1000,
+  usernameMin: 3,
+  usernameMax: 30,
+  displayNameMax: 60,
+  bioMax: 400,
+  collectionNameMax: 80,
+  collectionDescriptionMax: 500,
+  wishNotesMax: 1000,
+  priceNoteMax: 200,
+  goalNameMax: 80,
+  favoritesOnProfileHeader: 6,
 });
+
+/** Usernames reservados (rotas e termos que confundiriam visitantes). */
+export const RESERVED_USERNAMES = Object.freeze(['admin', 'api', 'login', 'perfil', 'u', 'uploads', 'configuracoes', 'suporte']);
 
 /** Mantém a grafia escolhida pelo usuário, mas remove espaços sobrando. */
 export function cleanDisplayName(value) {
@@ -106,4 +136,38 @@ export function hoursToMinutes(input) {
 
 export function minutesToHours(minutes) {
   return Math.round(((minutes ?? 0) / 60) * 100) / 100;
+}
+
+/** "2026-11-09" válido (data de calendário, sem horário). */
+export function isIsoDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+/** Data de hoje (AAAA-MM-DD) num fuso horário IANA. */
+export function todayIn(timeZone = 'America/Sao_Paulo', now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
+/** Soma dias a uma data AAAA-MM-DD. */
+export function addDays(isoDate, days) {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Segunda-feira da semana de uma data AAAA-MM-DD. */
+export function startOfWeek(isoDate) {
+  const day = new Date(`${isoDate}T00:00:00Z`).getUTCDay(); // 0 = domingo
+  return addDays(isoDate, day === 0 ? -6 : 1 - day);
+}
+
+/** "2h30" a partir de minutos. */
+export function formatDuration(minutes) {
+  const m = Math.max(0, Math.round(minutes ?? 0));
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  if (h === 0) return `${rest} min`;
+  return rest ? `${h}h${String(rest).padStart(2, '0')}` : `${h}h`;
 }

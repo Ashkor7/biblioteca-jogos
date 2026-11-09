@@ -23,16 +23,38 @@ enum MediaType {
 
 enum PlayStatus {
   NOT_STARTED
+  PLAYING
   COMPLETED
   ABANDONED
 }
 
+enum WishPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum GoalType {
+  COMPLETE_GAMES
+  PLAY_HOURS
+  COMPLETE_CATEGORY
+  COMPLETE_BACKLOG
+}
+
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
+  id           String            @id @default(uuid()) @db.Uuid
+  email        String            @unique
   passwordHash String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime          @default(now())
   games        Game[]
+  profile      PlayerProfile?
+  favorites    FavoriteGame[]
+  collections  GameCollection[]
+  sessions     GameSession[]
+  activities   PlayerActivity[]
+  achievements UserAchievement[]
+  xpLedger     XpTransaction[]
+  goals        PlayerGoal[]
 }
 
 /// Criada automaticamente quando um jogo referencia uma plataforma nova.
@@ -59,11 +81,14 @@ model PlatformSlugAlias {
 
 /// Loja/vendedor onde o jogo foi comprado (Steam, Nuuvem, Instant Gaming...).
 model Store {
-  id             String   @id @default(uuid()) @db.Uuid
-  name           String   @db.VarChar(60)
-  normalizedName String   @unique @db.VarChar(60)
-  createdAt      DateTime @default(now())
+  id             String               @id @default(uuid()) @db.Uuid
+  name           String               @db.VarChar(60)
+  normalizedName String               @unique @db.VarChar(60)
+  createdAt      DateTime             @default(now())
   games          Game[]
+  /// Loja preferida de itens da lista de desejos.
+  preferredFor   Game[]               @relation("PreferredStore")
+  priceEntries   WishlistPriceEntry[]
 }
 
 model Category {
@@ -75,36 +100,57 @@ model Category {
 }
 
 model Game {
-  id                 String          @id @default(uuid()) @db.Uuid
-  ownerId            String          @db.Uuid
-  owner              User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  title              String          @db.VarChar(160)
-  platformId         String          @db.Uuid
-  platform           Platform        @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  id                 String               @id @default(uuid()) @db.Uuid
+  ownerId            String               @db.Uuid
+  owner              User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title              String               @db.VarChar(160)
+  platformId         String               @db.Uuid
+  platform           Platform             @relation(fields: [platformId], references: [id], onDelete: Restrict)
   ownershipStatus    OwnershipStatus
   mediaType          MediaType?
-  originalPrice      Decimal?        @db.Decimal(12, 2)
-  paidPrice          Decimal?        @db.Decimal(12, 2)
-  currentWishPrice   Decimal?        @db.Decimal(12, 2)
+  originalPrice      Decimal?             @db.Decimal(12, 2)
+  paidPrice          Decimal?             @db.Decimal(12, 2)
+  currentWishPrice   Decimal?             @db.Decimal(12, 2)
   wishPriceUpdatedAt DateTime?
-  storeId            String?         @db.Uuid
-  store              Store?          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  storeId            String?              @db.Uuid
+  store              Store?               @relation(fields: [storeId], references: [id], onDelete: Restrict)
   purchasedAt        DateTime?
-  playStatus         PlayStatus      @default(NOT_STARTED)
-  playTimeMinutes    Int             @default(0)
-  ratingStars        Int?            @db.SmallInt
+  playStatus         PlayStatus           @default(NOT_STARTED)
+  /// Total exibido = legacyPlayMinutes + soma das sessões do diário (recalculado no servidor).
+  playTimeMinutes    Int                  @default(0)
+  /// Saldo inicial: horas informadas sem sessão (sem data). Nunca é somado de novo.
+  legacyPlayMinutes  Int                  @default(0)
+  /// Quando passou a COMPLETED; null para jogos zerados antes da v3 (data desconhecida).
+  completedAt        DateTime?
+  ratingStars        Int?                 @db.SmallInt
   reviewText         String?
-  isFeatured         Boolean         @default(false)
+  isFeatured         Boolean              @default(false)
+  // Planejamento da lista de desejos (tudo digitado pelo usuário)
+  targetPrice        Decimal?             @db.Decimal(12, 2)
+  wishPriority       WishPriority?
+  preferredStoreId   String?              @db.Uuid
+  preferredStore     Store?               @relation("PreferredStore", fields: [preferredStoreId], references: [id], onDelete: Restrict)
+  wishNotes          String?              @db.VarChar(1000)
   /// true para registros importados que ainda precisam de preço pago/loja.
-  needsReview        Boolean         @default(false)
+  needsReview        Boolean              @default(false)
   /// id do registro na versão antiga (localStorage) — evita importar duas vezes.
-  legacyId           String?         @db.VarChar(64)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  legacyId           String?              @db.VarChar(64)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   categories         GameCategory[]
   images             GameImage[]
+  favorites          FavoriteGame[]
+  collectionItems    GameCollectionItem[]
+  sessions           GameSession[]
+  priceEntries       WishlistPriceEntry[]
+  activities         PlayerActivity[]
+  coverOf            GameCollection[]
 
   @@unique([ownerId, legacyId])
+  /// Alvo das chaves estrangeiras compostas: impede apontar para jogo de outro usuário.
+  @@unique([id, ownerId])
+  @@index([ownerId, playStatus])
+  @@index([preferredStoreId])
   @@index([ownerId, ownershipStatus])
   @@index([platformId])
   @@index([storeId])
@@ -137,4 +183,193 @@ model GameImage {
   createdAt  DateTime @default(now())
 
   @@index([gameId, position])
+}
+
+// ---------------------------------------------------------------------------
+// Player Hub (v3): perfil, favoritos, coleções, diário e gamificação.
+// Regras de XP/conquistas/títulos: shared/progression.js + progressionService.
+// ---------------------------------------------------------------------------
+
+/// Perfil do jogador + privacidade. Tudo começa privado; financeiro só com autorização explícita.
+model PlayerProfile {
+  userId              String    @id @db.Uuid
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username            String    @unique @db.VarChar(30)
+  displayName         String    @db.VarChar(60)
+  bio                 String?   @db.VarChar(400)
+  avatarKey           String?   @db.VarChar(80)
+  bannerKey           String?   @db.VarChar(80)
+  /// Código de um título já desbloqueado (validado no servidor).
+  titleCode           String?   @db.VarChar(40)
+  /// Cache de SUM(XpTransaction.amount); reconstruível a partir do livro-razão.
+  totalXp             Int       @default(0)
+  level               Int       @default(1)
+  /// Quando a biblioteca existente foi processada pela primeira vez (eventos retroativos).
+  backfilledAt        DateTime?
+  /// Avisos de conquista/nível/meta anteriores a esta data já foram exibidos.
+  notificationsSeenAt DateTime  @default(now())
+  isPublic            Boolean   @default(false)
+  showFavorites       Boolean   @default(true)
+  showAchievements    Boolean   @default(true)
+  showActivity        Boolean   @default(false)
+  showPlayStats       Boolean   @default(true)
+  showLibrary         Boolean   @default(false)
+  showWishlist        Boolean   @default(false)
+  showOriginalValue   Boolean   @default(false)
+  showPaidTotal       Boolean   @default(false)
+  showSavings         Boolean   @default(false)
+  showStoreRanking    Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+/// Favoritos múltiplos (independente do destaque único Game.isFeatured).
+model FavoriteGame {
+  ownerId       String   @db.Uuid
+  gameId        String   @db.Uuid
+  position      Int      @default(0)
+  showOnProfile Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  game          Game     @relation(fields: [gameId, ownerId], references: [id, ownerId], onDelete: Cascade)
+
+  @@id([ownerId, gameId])
+  @@index([ownerId, position])
+  @@index([gameId, ownerId])
+}
+
+model GameCollection {
+  id             String               @id @default(uuid()) @db.Uuid
+  ownerId        String               @db.Uuid
+  owner          User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String               @db.VarChar(80)
+  normalizedName String               @db.VarChar(80)
+  description    String?              @db.VarChar(500)
+  isPublic       Boolean              @default(false)
+  /// Jogo cuja capa ilustra a coleção (precisa estar nela).
+  coverGameId    String?              @db.Uuid
+  coverGame      Game?                @relation(fields: [coverGameId], references: [id], onDelete: SetNull)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  items          GameCollectionItem[]
+
+  @@unique([ownerId, normalizedName])
+  @@unique([id, ownerId])
+  @@index([coverGameId])
+}
+
+model GameCollectionItem {
+  collectionId String         @db.Uuid
+  gameId       String         @db.Uuid
+  ownerId      String         @db.Uuid
+  position     Int            @default(0)
+  addedAt      DateTime       @default(now())
+  collection   GameCollection @relation(fields: [collectionId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  game         Game           @relation(fields: [gameId, ownerId], references: [id, ownerId], onDelete: Cascade)
+
+  @@id([collectionId, gameId])
+  @@index([gameId, ownerId])
+  @@index([collectionId, ownerId])
+}
+
+/// Sessão do diário de jogatina. Game.playTimeMinutes = legacyPlayMinutes + soma destas.
+model GameSession {
+  id              String    @id @default(uuid()) @db.Uuid
+  ownerId         String    @db.Uuid
+  gameId          String    @db.Uuid
+  owner           User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  game            Game      @relation(fields: [gameId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  playedOn        DateTime  @db.Date
+  durationMinutes Int
+  startedAt       DateTime?
+  endedAt         DateTime?
+  notes           String?   @db.VarChar(1000)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([ownerId, playedOn])
+  @@index([gameId, ownerId])
+}
+
+/// Histórico manual de preços de um desejo (continua existindo depois da compra).
+model WishlistPriceEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  gameId     String   @db.Uuid
+  ownerId    String   @db.Uuid
+  game       Game     @relation(fields: [gameId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  price      Decimal  @db.Decimal(12, 2)
+  storeId    String?  @db.Uuid
+  store      Store?   @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  recordedOn DateTime @db.Date
+  note       String?  @db.VarChar(200)
+  createdAt  DateTime @default(now())
+
+  @@index([gameId, ownerId])
+  @@index([storeId])
+}
+
+/// Linha do tempo do jogador. dedupeKey (quando há) impede o mesmo evento duas vezes.
+model PlayerActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   @db.VarChar(30)
+  dedupeKey   String?  @db.VarChar(120)
+  gameId      String?  @db.Uuid
+  game        Game?    @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  entityId    String?  @db.Uuid
+  /// Dados de exibição (título, nível, código). Nunca valores financeiros.
+  data        Json     @default("{}")
+  /// true = registrado ao processar dados antigos; não aconteceu nesta data.
+  retroactive Boolean  @default(false)
+  occurredAt  DateTime @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, occurredAt])
+  @@index([gameId])
+}
+
+/// Conquistas desbloqueadas; as definições ficam em shared/progression.js.
+model UserAchievement {
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String   @db.VarChar(40)
+  unlockedAt  DateTime @default(now())
+  retroactive Boolean  @default(false)
+
+  @@id([userId, code])
+}
+
+/// Livro-razão de XP: cada evento paga no máximo uma vez (eventKey único por usuário).
+model XpTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventKey    String   @db.VarChar(120)
+  source      String   @db.VarChar(30)
+  amount      Int
+  description String   @db.VarChar(200)
+  retroactive Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, eventKey])
+  @@index([userId, source, createdAt])
+}
+
+model PlayerGoal {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String    @db.VarChar(80)
+  type         GoalType
+  startsOn     DateTime  @db.Date
+  endsOn       DateTime  @db.Date
+  targetValue  Int
+  /// COMPLETE_CATEGORY: categoria comparada por normalizeKey.
+  categoryName String?   @db.VarChar(40)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, endsOn])
 }

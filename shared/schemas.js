@@ -3,15 +3,35 @@
 import { z } from 'zod';
 import {
   LIMITS,
+  RESERVED_USERNAMES,
   cleanDisplayName,
   normalizeKey,
   moneyToCents,
   centsToDecimalString,
+  isIsoDate,
 } from './domain.js';
 
 const MEDIA_VALUES = ['PHYSICAL', 'DIGITAL'];
 const OWNERSHIP_VALUES = ['OWNED', 'WISHLIST'];
-const PLAY_STATUS_VALUES = ['NOT_STARTED', 'COMPLETED', 'ABANDONED'];
+const PLAY_STATUS_VALUES = ['NOT_STARTED', 'PLAYING', 'COMPLETED', 'ABANDONED'];
+const PRIORITY_VALUES = ['LOW', 'MEDIUM', 'HIGH'];
+const GOAL_TYPE_VALUES = ['COMPLETE_GAMES', 'PLAY_HOURS', 'COMPLETE_CATEGORY', 'COMPLETE_BACKLOG'];
+
+export { PLAY_STATUS_VALUES, PRIORITY_VALUES, GOAL_TYPE_VALUES };
+
+/** Texto livre opcional: apara espaços; vazio vira null. */
+function optionalText(max) {
+  return z
+    .string({ error: 'Texto inválido' })
+    .max(max, `Use no máximo ${max} caracteres`)
+    .nullish()
+    .transform((v) => (v && v.trim() ? v.trim() : null));
+}
+
+/** Data de calendário "AAAA-MM-DD". */
+export function isoDateField(message = 'Data inválida') {
+  return z.string({ error: message }).trim().refine(isIsoDate, message);
+}
 
 /** Valor monetário em BRL ≥ 0. Saída: string decimal "199.90" ou null. */
 export const moneyField = z
@@ -133,6 +153,11 @@ export function buildGameSchema() {
         .nullish()
         .transform((v) => v ?? null),
       playStatus: z.enum(PLAY_STATUS_VALUES, { error: 'Estado inválido' }).default('NOT_STARTED'),
+      // Data em que zerou (opcional). Só vale para playStatus COMPLETED.
+      completedAt: z.coerce
+        .date({ error: 'Data de conclusão inválida' })
+        .nullish()
+        .transform((v) => v ?? null),
       playTimeMinutes: z
         .number({ error: 'Horas inválidas' })
         .int('Horas inválidas')
@@ -154,8 +179,16 @@ export function buildGameSchema() {
         .transform((v) => (v && v.trim() ? v.trim() : null)),
       categories: categoriesField,
       coverUrl: externalImageUrl.nullish().transform((v) => v || null),
+      targetPrice: moneyField,
+      wishPriority: z
+        .enum(PRIORITY_VALUES, { error: 'Prioridade inválida' })
+        .nullish()
+        .transform((v) => v ?? null),
+      preferredStore: optionalLookupName,
+      wishNotes: optionalText(LIMITS.wishNotesMax),
     })
     .transform((game) => {
+      if (game.playStatus !== 'COMPLETED') game = { ...game, completedAt: null };
       if (game.ownershipStatus === 'WISHLIST') {
         // Desejos não têm mídia, preço pago nem loja (regra da especificação).
         return { ...game, mediaType: null, paidPrice: null, store: null, purchasedAt: null };
@@ -204,6 +237,176 @@ export const markPurchasedSchema = z.object({
     .nullish()
     .transform((v) => v ?? null),
 });
+
+// ---------------------------------------------------------------------------
+// Player Hub (v3)
+// ---------------------------------------------------------------------------
+
+export const usernameField = z
+  .string({ error: 'Informe o nome de usuário' })
+  .trim()
+  .toLowerCase()
+  .superRefine((value, ctx) => {
+    if (value.length < LIMITS.usernameMin || value.length > LIMITS.usernameMax) {
+      ctx.addIssue({ code: 'custom', message: `Use de ${LIMITS.usernameMin} a ${LIMITS.usernameMax} caracteres` });
+    } else if (!/^[a-z0-9][a-z0-9_-]+$/.test(value)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Use letras minúsculas sem acento, números, hífen ou sublinhado (começando por letra ou número)',
+      });
+    } else if (RESERVED_USERNAMES.includes(value)) {
+      ctx.addIssue({ code: 'custom', message: 'Esse nome de usuário é reservado' });
+    }
+  });
+
+// Caracteres de controle e de direção de texto não têm uso legítimo em nomes e biografias.
+// eslint-disable-next-line no-control-regex -- remover caracteres de controle é exatamente o objetivo
+const CONTROL_RE = /[\u0000-\u0009\u000B-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g;
+const stripControl = (v) => String(v).replace(CONTROL_RE, '');
+
+function displayText(requiredMessage, max) {
+  return z
+    .string({ error: requiredMessage })
+    .transform((v) => cleanDisplayName(stripControl(v)))
+    .pipe(z.string().min(1, requiredMessage).max(max, `Use no máximo ${max} caracteres`));
+}
+
+export const profileUpdateSchema = z
+  .object({
+    displayName: displayText('Informe o nome de exibição', LIMITS.displayNameMax),
+    username: usernameField,
+    bio: z
+      .string({ error: 'Biografia inválida' })
+      .nullish()
+      .transform((v) => (v ? stripControl(v).replace(/\n{3,}/g, '\n\n').trim() || null : null))
+      .pipe(z.string().max(LIMITS.bioMax, `Use no máximo ${LIMITS.bioMax} caracteres`).nullable()),
+    titleCode: z.string().max(40).nullish().transform((v) => v || null),
+  })
+  .partial();
+
+export const PRIVACY_KEYS = [
+  'isPublic',
+  'showFavorites',
+  'showAchievements',
+  'showActivity',
+  'showPlayStats',
+  'showLibrary',
+  'showWishlist',
+  'showOriginalValue',
+  'showPaidTotal',
+  'showSavings',
+  'showStoreRanking',
+];
+
+export const privacySchema = z
+  .strictObject(Object.fromEntries(PRIVACY_KEYS.map((key) => [key, z.boolean({ error: 'Use verdadeiro ou falso' })])))
+  .partial();
+
+const uuidField = (what) => z.uuid(`${what} inválido`);
+
+export const favoriteAddSchema = z.object({
+  gameId: uuidField('Jogo'),
+  showOnProfile: z.boolean().optional().default(true),
+});
+export const favoritePatchSchema = z.object({ showOnProfile: z.boolean({ error: 'Valor inválido' }) });
+export const favoritesOrderSchema = z.object({
+  gameIds: z.array(uuidField('Jogo')).min(1, 'Informe a ordem dos favoritos').max(500),
+});
+
+export const collectionSchema = z.object({
+  name: displayText('Informe o nome da coleção', LIMITS.collectionNameMax).refine(
+    (v) => normalizeKey(v) !== '',
+    'Use pelo menos uma letra ou número',
+  ),
+  description: optionalText(LIMITS.collectionDescriptionMax),
+  isPublic: z.boolean({ error: 'Valor inválido' }).optional().default(false),
+  coverGameId: uuidField('Jogo').nullish().transform((v) => v ?? null),
+});
+export const collectionPatchSchema = z.object({
+  name: collectionSchema.shape.name.optional(),
+  description: optionalText(LIMITS.collectionDescriptionMax).optional(),
+  isPublic: z.boolean({ error: 'Valor inválido' }).optional(),
+  coverGameId: uuidField('Jogo').nullable().optional(),
+});
+export const collectionItemsSchema = z.object({
+  gameIds: z.array(uuidField('Jogo')).min(1, 'Escolha pelo menos um jogo').max(500),
+});
+
+const optionalDateTime = z.coerce
+  .date({ error: 'Horário inválido' })
+  .nullish()
+  .transform((v) => v ?? null);
+
+export const sessionSchema = z
+  .object({
+    gameId: uuidField('Jogo'),
+    playedOn: isoDateField('Informe a data da sessão'),
+    durationMinutes: z
+      .number({ error: 'Duração inválida' })
+      .int('Duração inválida')
+      .nullish()
+      .transform((v) => v ?? null),
+    startedAt: optionalDateTime,
+    endedAt: optionalDateTime,
+    notes: optionalText(LIMITS.sessionNotesMax),
+  })
+  .transform((s, ctx) => {
+    if (s.startedAt && s.endedAt && s.endedAt <= s.startedAt) {
+      ctx.addIssue({ code: 'custom', path: ['endedAt'], message: 'O fim precisa ser depois do início' });
+      return z.NEVER;
+    }
+    const fromInterval = s.startedAt && s.endedAt ? Math.round((s.endedAt - s.startedAt) / 60000) : null;
+    const durationMinutes = s.durationMinutes ?? fromInterval;
+    if (durationMinutes === null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['durationMinutes'],
+        message: 'Informe a duração (horas e minutos) ou o início e o fim',
+      });
+      return z.NEVER;
+    }
+    if (durationMinutes < 1 || durationMinutes > LIMITS.sessionMaxMinutes) {
+      ctx.addIssue({ code: 'custom', path: ['durationMinutes'], message: 'Uma sessão precisa ter entre 1 minuto e 24 horas' });
+      return z.NEVER;
+    }
+    return { ...s, durationMinutes };
+  });
+
+export const priceEntrySchema = z.object({
+  price: moneyField.refine((v) => v !== null, 'Informe o preço encontrado'),
+  store: optionalLookupName,
+  recordedOn: isoDateField('Informe a data em que viu o preço'),
+  note: optionalText(LIMITS.priceNoteMax),
+});
+
+export const goalSchema = z
+  .object({
+    name: displayText('Dê um nome para a meta', LIMITS.goalNameMax),
+    type: z.enum(GOAL_TYPE_VALUES, { error: 'Escolha o tipo de meta' }),
+    startsOn: isoDateField('Informe o início do período'),
+    endsOn: isoDateField('Informe o fim do período'),
+    targetValue: z
+      .number({ error: 'Informe o objetivo' })
+      .int('Use um número inteiro')
+      .min(1, 'O objetivo precisa ser pelo menos 1')
+      .max(100_000, 'Objetivo grande demais'),
+    categoryName: z
+      .string()
+      .max(LIMITS.categoryMax, `Use no máximo ${LIMITS.categoryMax} caracteres`)
+      .nullish()
+      .transform((v) => (v ? cleanDisplayName(v) || null : null)),
+  })
+  .transform((g, ctx) => {
+    if (g.endsOn < g.startsOn) {
+      ctx.addIssue({ code: 'custom', path: ['endsOn'], message: 'O fim precisa ser igual ou depois do início' });
+      return z.NEVER;
+    }
+    if (g.type === 'COMPLETE_CATEGORY' && !normalizeKey(g.categoryName)) {
+      ctx.addIssue({ code: 'custom', path: ['categoryName'], message: 'Informe a categoria' });
+      return z.NEVER;
+    }
+    return g.type === 'COMPLETE_CATEGORY' ? g : { ...g, categoryName: null };
+  });
 
 export const loginSchema = z.object({
   email: z
