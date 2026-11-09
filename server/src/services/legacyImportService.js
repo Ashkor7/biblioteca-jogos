@@ -7,6 +7,7 @@ import { saveImageBuffer, removeStoredFiles, dataUrlToBuffer } from '../lib/stor
 import { cleanDisplayName, normalizeKey, moneyToCents, centsToDecimalString, LIMITS } from '../../../shared/domain.js';
 import { legacyGameSchema, externalImageUrl } from '../../../shared/schemas.js';
 import { findOrCreatePlatform, findOrCreateCategories } from './lookupService.js';
+import { syncNow } from './progressionService.js';
 
 const STATUS_MAP = {
   'zerado': 'COMPLETED',
@@ -107,5 +108,6 @@ export async function importLegacy(ownerId, body) {
       report.failed.push({ index, legacyId: game.legacyId, message: error.message });
     }
   }
+  if (report.imported > 0) await syncNow(ownerId, { retroactive: true });
   return report;
 }

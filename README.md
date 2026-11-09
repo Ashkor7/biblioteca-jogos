@@ -4,7 +4,9 @@
 
 # Biblioteca de Jogos
 
-Biblioteca pessoal de jogos com **persistência real no servidor**. Os dados ficam em PostgreSQL, as imagens são enviadas para a API e o visual segue uma linha cyberpunk de “terminal de inventário”.
+Biblioteca pessoal de jogos e **perfil de jogador** com persistência real no servidor. Os dados ficam em PostgreSQL, as imagens são enviadas para a API e o visual segue uma linha cyberpunk de HUD de RPG (“Player Hub”, versão 3.0).
+
+> Novidades da 3.0 (perfil, níveis e XP, conquistas, metas, diário, coleções, favoritos, finanças 2.0, lista de desejos avançada e perfil público): referência completa em [`docs/PLAYER_HUB.md`](docs/PLAYER_HUB.md).
 
 - **Plataformas dinâmicas.** Ao cadastrar o primeiro jogo de “Xbox 360”, a plataforma é criada no banco, aparece no menu e ganha a rota `/plataformas/xbox-360`. Uma única página atende todas as plataformas.
 - **Cadastro completo.** Nome, capa (upload ou URL https), condição (físico, digital ou lista de desejos), plataforma e loja digitáveis com sugestões, preço original e preço pago.
@@ -18,6 +20,13 @@ Biblioteca pessoal de jogos com **persistência real no servidor**. Os dados fic
   - ranking de **lojas** com desconto por loja.
 - **Proprietário autenticado.** Senha com bcrypt e sessão em cookie `HttpOnly`/`SameSite`. Toda escrita é protegida no backend, com validação Zod no servidor e no cliente.
 - **Importação única** dos dados da versão antiga, que ficavam no `localStorage` do navegador.
+- **Meu perfil** com foto, banner, nome, @usuário, biografia, nível, XP, título escolhido entre os desbloqueados, estatísticas, finanças privadas e ranking de lojas.
+- **Progressão RPG** calculada no servidor: XP por jogos zerados, sessões, notas, metas e conquistas, sem XP duplicado nem ilimitado; jogos antigos contam retroativamente.
+- **Diário de jogatina** (`/diario`) com sessões, calendário, semana/mês e jogos mais jogados. As horas antigas viram saldo inicial e nunca são somadas duas vezes.
+- **Coleções**, **favoritos múltiplos** (o destaque único continua), **metas** e **histórico de atividades**.
+- **Lista de desejos avançada**: preço-alvo, prioridade, loja preferida, notas e histórico manual de preços com gráfico.
+- **Dashboard financeiro 2.0**: gastos e economia por mês/ano, acumulado, lojas, plataformas e maiores economias.
+- **Perfil público opcional** em `/u/:usuário`, somente leitura, com cada seção liberada por você (tudo privado por padrão).
 
 ---
 
@@ -34,7 +43,8 @@ Biblioteca pessoal de jogos com **persistência real no servidor**. Os dados fic
 9. [Testes](#testes)
 10. [Segurança](#segurança)
 11. [Produção](#produção)
-12. [Decisões de arquitetura](#decisões-de-arquitetura)
+12. [Atualizar da 2.x para a 3.0](#atualizar-da-2x-para-a-30)
+13. [Decisões de arquitetura](#decisões-de-arquitetura)
 
 ## Tecnologias
 
@@ -53,8 +63,9 @@ biblioteca-jogos/
 ├── index.html, vite.config.js, eslint.config.js   # frontend (Vite na raiz)
 ├── src/                      # React
 │   ├── components/           # Layout, GameCard, TagInput, ImageManager, HBarChart…
-│   ├── pages/                # Dashboard, PlatformPage, WishlistPage, StatisticsPage,
-│   │                         # GameFormPage, GameDetailsPage, LoginPage, ImportPage
+│   ├── pages/                # Dashboard, Profile, Library, Diary, Collections, Achievements,
+│   │                         # Goals, Activities, Settings, PublicProfile, Platform, Wishlist,
+│   │                         # Statistics, GameForm, GameDetails, Login, Import
 │   ├── hooks/                # TanStack Query, autenticação, filtros na URL
 │   ├── services/             # cliente HTTP da API
 │   ├── utils/                # formatação BRL/horas, conversão do formulário
@@ -64,7 +75,7 @@ biblioteca-jogos/
 │   ├── prisma/schema.prisma
 │   ├── prisma/migrations/
 │   ├── src/{routes,services,middleware,lib,validations}
-│   ├── scripts/              # create-admin.js, import-legacy.js
+│   ├── scripts/              # create-admin, import-legacy, backup-db, verify-migration
 │   ├── tests/                # testes de aceitação da API
 │   └── uploads/              # imagens enviadas (fora do Git)
 ├── docker-compose.yml        # PostgreSQL 16 (porta 5433)
@@ -156,7 +167,10 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 | `SESSION_SECRET` | — | Assina o cookie de sessão (mínimo de 32 caracteres); o servidor não inicia com o texto de exemplo |
 | `SESSION_TTL_HOURS` | `168` | Duração da sessão |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | Origens aceitas em CORS e na checagem de `Origin` |
-| `PUBLIC_READ` | `false` | `true` deixa visitantes **verem** a coleção, sem poder alterar nada |
+| `PUBLIC_READ` | `false` | **Obsoleta desde a 3.0** (não abre mais nada; use o perfil público). Se `true`, a API só avisa no console |
+| `PUBLIC_APP_URL` | — | Endereço público do app (ex.: `https://biblioteca.exemplo.com`). Sem ele, a interface não oferece “copiar link” do perfil |
+| `PUBLIC_RATE_LIMIT` | `120` | Requisições por minuto, por IP, nas rotas `/api/public` |
+| `APP_TIMEZONE` | `America/Sao_Paulo` | Fuso usado para “hoje”, semana e mês do diário e das metas |
 | `COOKIE_SECURE` | `auto` | `Secure` só em produção |
 | `TRUST_PROXY` | `false` | Use `true` atrás de um proxy reverso |
 | `LOGIN_RATE_LIMIT` | `10` | Tentativas de login a cada 15 min por IP |
@@ -182,6 +196,8 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 | `npm run db:migrate:dev` | Cria uma nova migração depois de alterar o `schema.prisma` |
 | `npm run db:studio` | Prisma Studio |
 | `npm run admin:create` | Cria/atualiza o proprietário |
+| `npm run db:backup` | Backup lógico consistente (JSON) em `backups/`, sem precisar de `pg_dump` |
+| `node server/scripts/verify-migration.js` | Confere, sem alterar nada, que a migração 3.0 preservou os dados |
 | `npm run import:legacy -- --file jogos.json` | Importa o JSON antigo pelo terminal |
 
 ## Como usar
@@ -192,7 +208,10 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 4. **Edite os detalhes** pela página do jogo, em “Editar”: estrelas, avaliação escrita, categorias (tags livres, sem lista pronta), estado, horas (aceita `12,5`) e a galeria de imagens.
 5. **Lista de desejos.** Em `/desejos`, registre o preço atual que você encontrou. A data é atualizada sozinha quando o preço muda. “Comprei” abre o formulário de compra, que pede mídia, preço pago e loja. O jogo então sai da lista e entra nas contas.
 6. **Estatísticas** em `/estatisticas`: coleção, dinheiro, ranking de lojas (por quantidade, economia ou desconto percentual), horas por categoria e jogos por plataforma, sempre com gráfico e tabela.
-7. **Dados antigos.** Em “Importar dados antigos”, a página lê o `localStorage['jogos']` da versão anterior (só leitura) ou recebe o JSON exportado. Os jogos importados ficam marcados para revisão até você informar preço pago e loja.
+7. **Meu perfil** (`/perfil`): identidade, nível, favoritos, estatísticas, finanças privadas, conquistas e atividades. Edite em **Configurações**, onde também ficam foto, banner, título, privacidade e a prévia “como visitante”.
+8. **Diário** (`/diario`): registre sessões com duração (ou início e fim) e observações. Também dá para registrar pela página do jogo ou pelo card “Jogando atualmente”.
+9. **Coleções** (`/colecoes`), **Metas e conquistas** (`/conquistas`, `/metas`) e **Atividades** (`/atividades`).
+10. **Dados antigos.** Em “Importar dados antigos”, a página lê o `localStorage['jogos']` da versão anterior (só leitura) ou recebe o JSON exportado. Os jogos importados ficam marcados para revisão até você informar preço pago e loja.
 
 ## API REST
 
@@ -201,7 +220,7 @@ Todas as rotas ficam sob `/api`. As respostas de erro seguem o formato `{ "error
 ```text
 POST   /api/auth/login                 { email, password }
 POST   /api/auth/logout
-GET    /api/auth/me                    { user | null, publicRead }
+GET    /api/auth/me                    { user | null, publicAppUrl }
 GET    /api/games?search=&platform=<slug>&platformId=&ownership=OWNED|WISHLIST|ALL
              &status=&media=&categoryId=&storeId=&sort=&page=&pageSize=
 POST   /api/games                      JSON ou multipart (campo "data" + arquivo "cover")
@@ -228,11 +247,13 @@ POST   /api/import/legacy              array do localStorage antigo (idempotente
 GET    /api/health
 ```
 
+Rotas da 3.0 (perfil, favoritos, sessões, coleções, metas, progressão, histórico de preços, finanças e perfil público): veja [`docs/PLAYER_HUB.md`](docs/PLAYER_HUB.md#4-rotas-novas).
+
 ## Regras de dados e cálculos
 
 - **Posse e mídia são campos separados.** `ownershipStatus` (`OWNED`/`WISHLIST`) e `mediaType` (`PHYSICAL`/`DIGITAL`/`null`). Na lista de desejos, `mediaType`, `paidPrice` e a loja são sempre nulos.
 - **Dinheiro em `DECIMAL(12,2)`.** As contas são feitas no PostgreSQL e com `Prisma.Decimal`, nunca com `float`. A API devolve os valores como string (`"199.90"`).
-- **Horas em minutos inteiros** (`playTimeMinutes`). A interface aceita horas decimais.
+- **Horas em minutos inteiros** (`playTimeMinutes`). A interface aceita horas decimais. Desde a 3.0, `playTimeMinutes = legacyPlayMinutes (saldo antigo, sem data) + Σ sessões do diário`, recalculado no servidor a cada alteração de sessão.
 - **Plataforma ≠ loja.** Plataforma é o ecossistema do jogo (Steam, Xbox); loja é o vendedor (Nuuvem, Instant Gaming). “Steam” pode ser as duas coisas ao mesmo tempo.
 - **Normalização.** Nomes de plataforma, loja e categoria são comparados sem diferenciar caixa, acentos, espaços e pontuação. A grafia digitada primeiro é a que aparece na tela.
 - **Fórmulas** (contam só jogos `OWNED`):
@@ -265,8 +286,16 @@ Os testes da API aplicam as migrações num **banco separado** (`TEST_DATABASE_U
 | G: edição e exclusão sem órfãos | `server/tests/games.test.js` |
 | H: anônimo não escreve; CSRF; isolamento entre usuários | `server/tests/auth.test.js` |
 | Importação legada idempotente | `server/tests/legacy.test.js` |
+| Perfil, avatar/banner, privacidade, autorização | `server/tests/profile.test.js` |
+| Favoritos e coleções (ordem, posse, exclusão sem perder jogos) | `server/tests/collections.test.js` |
+| XP, níveis, conquistas, limites, retroativo sem duplicar | `server/tests/progression.test.js` |
+| Diário: horas legadas + sessões, edição e exclusão | `server/tests/sessions.test.js` |
+| Dashboard financeiro (mês/ano, sem data, filtros, desejos fora) | `server/tests/finance.test.js` |
+| Desejos: histórico, alvo, conversão no mesmo registro | `server/tests/wishlist-advanced.test.js` |
+| Metas com progresso real | `server/tests/goals.test.js` |
+| Perfil público: somente leitura e só o autorizado | `server/tests/public.test.js` |
 
-Na interface: contrato do formulário, `TagInput`, estrelas e uma checagem de que nenhum código grava em `localStorage`, `sessionStorage` ou IndexedDB.
+Na interface: contrato do formulário, `TagInput`, estrelas, barra de XP, cartão de conquista, perfil público (só as seções enviadas pelo servidor), textos/datas do Player Hub e uma checagem de que nenhum código grava em `localStorage`, `sessionStorage` ou IndexedDB.
 
 ## Segurança
 
@@ -282,7 +311,8 @@ Na interface: contrato do formulário, `TagInput`, estrelas e uma checagem de qu
   - remoção só de nomes no formato gerado, o que impede *path traversal*;
   - arquivos órfãos apagados ao remover imagem ou jogo.
 - Helmet (CSP, `nosniff` etc.), sem `x-powered-by`.
-- `.env`, `node_modules`, `dist` e `server/uploads` ficam fora do Git.
+- Perfil público com allowlist de campos, 404 igual para perfil privado ou inexistente, rate limit e somente GET. As rotas administrativas exigem login sempre (o antigo `PUBLIC_READ` não abre mais nada).
+- `.env`, `node_modules`, `dist`, `server/uploads`, `backups/` e `.pgdata/` ficam fora do Git.
 
 ## Produção
 
@@ -294,6 +324,20 @@ $env:NODE_ENV="production"; npm start   # API + frontend na mesma porta (PORT)
 - Use um PostgreSQL gerenciado e rode `npm run db:migrate` a cada deploy.
 - `server/uploads` precisa ser um **volume persistente**: hospedagens com disco efêmero apagam as imagens ao reiniciar. Outra saída é trocar `server/src/lib/storage.js` por um serviço de objetos (S3, R2…).
 - Defina `TRUST_PROXY=true` atrás de proxy, `CLIENT_ORIGIN` com o domínio real e um `SESSION_SECRET` forte.
+
+## Atualizar da 2.x para a 3.0
+
+```powershell
+npm run db:embedded              # em outra janela, deixe o banco ligado
+npm run db:backup                # cópia de segurança em backups/
+# feche a API antiga (no Windows ela trava o arquivo do Prisma durante o npm install)
+npm install
+npm run db:migrate
+node server/scripts/verify-migration.js
+npm run dev
+```
+
+A migração é aditiva: nada é apagado, as horas antigas viram saldo inicial e jogos já zerados ficam sem data de conclusão (a data real não é conhecida). Detalhes e reversão em [`docs/PLAYER_HUB.md`](docs/PLAYER_HUB.md#7-atualizar-uma-instalação-existente-v2--v3).
 
 ## Continuar o desenvolvimento
 

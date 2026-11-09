@@ -4,6 +4,11 @@ import { prisma } from './db.js';
 import { ensureUploadDir } from './lib/storage.js';
 
 await ensureUploadDir();
+if (config.PUBLIC_READ) {
+  console.warn(
+    'Aviso: PUBLIC_READ não abre mais a biblioteca para visitantes. Use o perfil público em Configurações → Privacidade (/u/<usuário>).',
+  );
+}
 const app = createApp();
 const server = app.listen(config.PORT, config.host, () => {
   const where = config.host === '0.0.0.0' ? 'todas as interfaces de rede' : 'somente este computador';

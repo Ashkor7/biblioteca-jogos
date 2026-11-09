@@ -96,4 +96,61 @@ export const api = {
   statsCategories: () => request('/statistics/categories'),
 
   importLegacy: (games) => request('/import/legacy', { method: 'POST', body: games }),
+
+  // Player Hub
+  statsFinance: (params) => request(`/statistics/finance${query(params)}`),
+  profile: () => request('/profile'),
+  updateProfile: (payload) => request('/profile', { method: 'PATCH', body: payload }),
+  updatePrivacy: (payload) => request('/profile/privacy', { method: 'PATCH', body: payload }),
+  profileStats: () => request('/profile/stats'),
+  profilePreview: () => request('/profile/preview'),
+  setProfileImage: (kind, file) => {
+    const formData = new FormData();
+    formData.set('image', file);
+    return request(`/profile/${kind}`, { method: 'PUT', formData });
+  },
+  removeProfileImage: (kind) => request(`/profile/${kind}`, { method: 'DELETE' }),
+
+  favorites: () => request('/favorites'),
+  addFavorite: (gameId) => request('/favorites', { method: 'POST', body: { gameId } }),
+  updateFavorite: (gameId, payload) => request(`/favorites/${gameId}`, { method: 'PATCH', body: payload }),
+  removeFavorite: (gameId) => request(`/favorites/${gameId}`, { method: 'DELETE' }),
+  reorderFavorites: (gameIds) => request('/favorites/order', { method: 'PUT', body: { gameIds } }),
+
+  sessions: (params) => request(`/sessions${query(params)}`),
+  diarySummary: (params) => request(`/sessions/summary${query(params)}`),
+  createSession: (payload) => request('/sessions', { method: 'POST', body: payload }),
+  updateSession: (id, payload) => request(`/sessions/${id}`, { method: 'PATCH', body: payload }),
+  deleteSession: (id) => request(`/sessions/${id}`, { method: 'DELETE' }),
+
+  collections: () => request('/collections'),
+  collection: (id) => request(`/collections/${id}`),
+  collectionsOfGame: (gameId) => request(`/collections/of-game/${gameId}`),
+  createCollection: (payload) => request('/collections', { method: 'POST', body: payload }),
+  updateCollection: (id, payload) => request(`/collections/${id}`, { method: 'PATCH', body: payload }),
+  deleteCollection: (id) => request(`/collections/${id}`, { method: 'DELETE' }),
+  addToCollection: (id, gameIds) => request(`/collections/${id}/items`, { method: 'POST', body: { gameIds } }),
+  removeFromCollection: (id, gameId) => request(`/collections/${id}/items/${gameId}`, { method: 'DELETE' }),
+  reorderCollection: (id, gameIds) => request(`/collections/${id}/items/order`, { method: 'PUT', body: { gameIds } }),
+
+  goals: (params) => request(`/goals${query(params)}`),
+  createGoal: (payload) => request('/goals', { method: 'POST', body: payload }),
+  updateGoal: (id, payload) => request(`/goals/${id}`, { method: 'PATCH', body: payload }),
+  deleteGoal: (id) => request(`/goals/${id}`, { method: 'DELETE' }),
+
+  achievements: () => request('/progression/achievements'),
+  activities: (params) => request(`/progression/activities${query(params)}`),
+  xpHistory: () => request('/progression/xp'),
+  notifications: () => request('/progression/notifications'),
+  ackNotifications: (upTo) => request('/progression/notifications/ack', { method: 'POST', body: { upTo } }),
+  rebuildProgress: () => request('/progression/rebuild', { method: 'POST' }),
+
+  priceHistory: (gameId) => request(`/games/${gameId}/prices`),
+  addPrice: (gameId, payload) => request(`/games/${gameId}/prices`, { method: 'POST', body: payload }),
+  deletePrice: (gameId, entryId) => request(`/games/${gameId}/prices/${entryId}`, { method: 'DELETE' }),
+
+  publicProfile: (username) => request(`/public/profiles/${encodeURIComponent(username)}`),
+  publicGames: (username, kind, page) =>
+    request(`/public/profiles/${encodeURIComponent(username)}/${kind}${query({ page })}`),
+  publicCollection: (username, id) => request(`/public/profiles/${encodeURIComponent(username)}/collections/${id}`),
 };

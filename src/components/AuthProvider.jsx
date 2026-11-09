@@ -10,7 +10,8 @@ export default function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user: me.data?.user ?? null,
-      publicRead: Boolean(me.data?.publicRead),
+      // Endereço público do app (PUBLIC_APP_URL). Sem ele não há link compartilhável.
+      publicAppUrl: me.data?.publicAppUrl ?? null,
       isLoading: me.isPending,
       error: me.error,
       refetch: me.refetch,

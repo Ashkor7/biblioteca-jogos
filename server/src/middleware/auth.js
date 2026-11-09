@@ -4,7 +4,6 @@ import { prisma } from '../db.js';
 import { AppError } from '../lib/errors.js';
 
 export const SESSION_COOKIE = 'bj_session';
-const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
 export function sessionCookieOptions() {
   return {
@@ -54,16 +53,13 @@ export function requireAuth(req, _res, next) {
 }
 
 /**
- * Leitura: proprietário autenticado ou, se PUBLIC_READ=true, visitante em modo
- * somente leitura vendo a coleção do proprietário.
+ * Leitura das rotas administrativas: só o proprietário autenticado.
+ * Até a v2, PUBLIC_READ=true abria estas rotas a qualquer visitante — inclusive
+ * preços pagos e lojas. Visitantes agora usam /api/public/*, que devolve apenas o
+ * que o perfil público autoriza (publicService).
  */
-export async function requireReader(req, _res, next) {
-  if (req.user) {
-    req.viewerId = req.user.id;
-    return next();
-  }
-  if (!config.PUBLIC_READ) throw new AppError(401, 'Faça login para ver a biblioteca');
-  const owner = await prisma.user.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
-  req.viewerId = owner?.id ?? NIL_UUID;
+export function requireReader(req, _res, next) {
+  if (!req.user) throw new AppError(401, 'Faça login para ver a biblioteca');
+  req.viewerId = req.user.id;
   next();
 }

@@ -21,7 +21,7 @@ export const PNG_DATA_URL = `data:image/png;base64,${PNG.toString('base64')}`;
 
 export async function resetDb() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "GameImage", "GameCategory", "Game", "Category", "Store", "PlatformSlugAlias", "Platform", "User" CASCADE',
+    'TRUNCATE "XpTransaction", "UserAchievement", "PlayerActivity", "PlayerGoal", "WishlistPriceEntry", "GameSession", "GameCollectionItem", "GameCollection", "FavoriteGame", "PlayerProfile", "GameImage", "GameCategory", "Game", "Category", "Store", "PlatformSlugAlias", "Platform", "User" CASCADE',
   );
 }
 

@@ -32,3 +32,9 @@ npm-debug.log*
 
 # PostgreSQL embutido (npm run db:embedded)
 .pgdata
+
+# Backups locais do banco (npm run db:backup) — contêm dados pessoais
+backups
+
+# Saídas do Playwright (capturas e snapshots locais)
+.playwright-mcp

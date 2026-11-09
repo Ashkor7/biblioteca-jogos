@@ -5,8 +5,9 @@ import { useStores, useLibraryMutation } from '../hooks/queries.js';
 import { useToast } from '../hooks/useToast.js';
 import { Field, MoneyInput } from './Field.jsx';
 import { moneyToInput } from '../utils/format.js';
+import { todayIn } from '../../shared/domain.js';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIn();
 
 /** Converte um desejo em jogo comprado: exige mídia, preço pago e loja. */
 export default function PurchaseDialog({ game, open, onClose, onDone }) {
@@ -72,7 +73,7 @@ export default function PurchaseDialog({ game, open, onClose, onDone }) {
           <FiShoppingCart className="text-cyan" aria-hidden="true" /> Marcar como comprado
         </h2>
         <p className="mt-1 text-sm text-muted">
-          {game.title} sai da lista de desejos e passa a contar na biblioteca e nos gastos.
+          {game.title} sai da lista de desejos e passa a contar na biblioteca e nos gastos. É o mesmo registro: o histórico de preços, as notas e as coleções continuam.
         </p>
 
         <fieldset className="mt-5 border-0 p-0">
@@ -149,7 +150,7 @@ function initialForm(game) {
     mediaType: '',
     originalPrice: moneyToInput(game.originalPrice),
     paidPrice: moneyToInput(game.currentWishPrice),
-    store: '',
+    store: game.preferredStore?.name ?? '',
     purchasedAt: today(),
   };
 }

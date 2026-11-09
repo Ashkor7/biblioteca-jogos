@@ -25,7 +25,7 @@ describe('estatísticas (teste F)', () => {
     const res = await agent.get('/api/statistics/overview');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
-      library: { owned: 2, completed: 1, notStarted: 1, abandoned: 0, physical: 0, digital: 2 },
+      library: { owned: 2, completed: 1, notStarted: 1, playing: 0, abandoned: 0, physical: 0, digital: 2 },
       wishlist: { count: 1, currentValue: '90.00', withoutPrice: 0, isPartial: false },
       finance: {
         originalTotal: '300.00',

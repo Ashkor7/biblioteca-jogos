@@ -1,9 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { FiEdit2, FiTrash2, FiAward, FiShoppingCart, FiArrowLeft, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
+import {
+  FiEdit2,
+  FiTrash2,
+  FiAward,
+  FiShoppingCart,
+  FiArrowLeft,
+  FiChevronLeft,
+  FiChevronRight,
+  FiX,
+  FiStar,
+  FiFolder,
+  FiClock,
+  FiTrendingDown,
+  FiTarget,
+} from 'react-icons/fi';
 import { api } from '../services/api.js';
 import { useMutation } from '@tanstack/react-query';
-import { useGame, useLibraryMutation, useInvalidateLibrary } from '../hooks/queries.js';
+import { useGame, useLibraryMutation, useInvalidateLibrary, useSessions, useGameCollections } from '../hooks/queries.js';
+import GameCollectionsDialog from '../components/GameCollectionsDialog.jsx';
+import SessionDialog from '../components/SessionDialog.jsx';
+import SessionList from '../components/SessionList.jsx';
+import PriceHistoryDialog from '../components/PriceHistoryDialog.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import CoverImage from '../components/CoverImage.jsx';
@@ -12,7 +30,16 @@ import { StarRating } from '../components/StarRating.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import PurchaseDialog from '../components/PurchaseDialog.jsx';
 import { LoadingState, ErrorState } from '../components/States.jsx';
-import { formatMoney, formatDate, formatHours, conditionLabel, describeDifference } from '../utils/format.js';
+import {
+  formatMoney,
+  formatDate,
+  formatHours,
+  conditionLabel,
+  describeDifference,
+  priorityLabel,
+  PRIORITY_TONE,
+  targetStatus,
+} from '../utils/format.js';
 
 export default function GameDetailsPage() {
   const { id } = useParams();
@@ -50,6 +77,13 @@ function Details({ game }) {
     onSuccess: (g) => toast.success(g.isFeatured ? `${g.title} está em destaque.` : 'Destaque removido.'),
     onError: (error) => toast.error(error.message),
   });
+
+  const favorite = useLibraryMutation(() => (game.isFavorite ? api.removeFavorite(game.id) : api.addFavorite(game.id)), {
+    onSuccess: () => toast.success(game.isFavorite ? 'Removido dos favoritos.' : 'Adicionado aos favoritos.'),
+    onError: (error) => toast.error(error.message),
+  });
+  const [dialog, setDialog] = useState(null);
+  const target = wish ? targetStatus(game.currentWishPrice, game.targetPrice) : null;
 
   const gallery = game.images;
 
@@ -103,7 +137,11 @@ function Details({ game }) {
             <StatusBadge status={game.playStatus} className="text-sm" />
             <StarRating value={game.ratingStars} size="text-base" />
             <span className="num text-sm text-muted">{formatHours(game.playTimeMinutes)}</span>
+            {game.playStatus === 'COMPLETED' && game.completedAt && (
+              <span className="text-sm text-muted">zerado em {formatDate(game.completedAt)}</span>
+            )}
           </div>
+          <GameCollectionsTags gameId={game.id} />
 
           {game.needsReview && (
             <p className="mt-4 border border-amber/50 bg-amber-soft px-4 py-3 text-sm">
@@ -121,6 +159,17 @@ function Details({ game }) {
                   <FiShoppingCart aria-hidden="true" /> Marcar como comprado
                 </button>
               )}
+              <button type="button" className="btn btn-ghost" onClick={() => favorite.mutate()} disabled={favorite.isPending} aria-pressed={game.isFavorite}>
+                <FiStar aria-hidden="true" className={game.isFavorite ? 'pop fill-amber text-amber' : ''} /> {game.isFavorite ? 'Favorito' : 'Favoritar'}
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => setDialog('collections')}>
+                <FiFolder aria-hidden="true" /> Coleções
+              </button>
+              {!wish && (
+                <button type="button" className="btn btn-ghost" onClick={() => setDialog('session')}>
+                  <FiClock aria-hidden="true" /> Registrar sessão
+                </button>
+              )}
               <button type="button" className="btn btn-ghost" onClick={() => feature.mutate()} disabled={feature.isPending} aria-pressed={game.isFeatured}>
                 <FiAward aria-hidden="true" /> {game.isFeatured ? 'Remover destaque' : 'Destacar'}
               </button>
@@ -134,14 +183,28 @@ function Details({ game }) {
             <section aria-labelledby="compra" className="panel">
               <div className="panel-body p-4 sm:p-5">
                 <h2 id="compra" className="mb-2 text-base text-muted">
-                  {wish ? 'Preços acompanhados' : 'Compra'}
+                  {wish ? 'Planejamento de compra' : 'Compra'}
                 </h2>
                 {wish ? (
-                  <dl >
-                    <Readout label="Preço atual informado" value={game.currentWishPrice ? formatMoney(game.currentWishPrice) : 'Sem preço atual'} />
-                    <Readout label="Atualizado em" value={formatDate(game.wishPriceUpdatedAt)} />
-                    <Readout label="Preço de referência" value={formatMoney(game.originalPrice)} />
-                  </dl>
+                  <>
+                    <dl>
+                      <Readout label="Último preço informado" value={game.currentWishPrice ? formatMoney(game.currentWishPrice) : 'Sem preço'} />
+                      <Readout label="Visto em" value={formatDate(game.wishPriceUpdatedAt)} />
+                      <Readout label="Preço-alvo" value={<span className="text-violet">{formatMoney(game.targetPrice)}</span>} />
+                      <Readout label="Preço de referência" value={formatMoney(game.originalPrice)} />
+                      <Readout
+                        label="Prioridade"
+                        value={<span className={PRIORITY_TONE[game.wishPriority] ?? 'text-faint'}>{priorityLabel(game.wishPriority)}</span>}
+                      />
+                      <Readout label="Loja preferida" value={game.preferredStore?.name ?? '—'} />
+                    </dl>
+                    {target && (
+                      <p className={`mt-3 inline-flex items-center gap-1.5 text-sm font-semibold ${target.tone}`}>
+                        <FiTarget aria-hidden="true" /> {target.label}
+                      </p>
+                    )}
+                    {game.wishNotes && <p className="mt-3 whitespace-pre-line text-sm text-ink/90">{game.wishNotes}</p>}
+                  </>
                 ) : (
                   <dl >
                     <Readout label="Preço original" value={formatMoney(game.originalPrice)} />
@@ -151,6 +214,9 @@ function Details({ game }) {
                     <Readout label="Data da compra" value={formatDate(game.purchasedAt)} />
                   </dl>
                 )}
+                <button type="button" className="btn btn-ghost btn-sm mt-4" onClick={() => setDialog('prices')}>
+                  <FiTrendingDown aria-hidden="true" /> {wish ? 'Histórico de preços' : 'Preços vistos antes da compra'}
+                </button>
               </div>
             </section>
 
@@ -171,6 +237,8 @@ function Details({ game }) {
               )}
             </section>
           </div>
+
+          {!wish && <GameSessions game={game} onAdd={() => setDialog('session')} />}
 
           <section aria-labelledby="avaliacao" className="mt-7">
             <h2 id="avaliacao" className="mb-2 text-base text-muted">
@@ -196,6 +264,10 @@ function Details({ game }) {
         O jogo, suas imagens e avaliações saem do banco de dados e as estatísticas são recalculadas. Não dá para desfazer.
       </ConfirmDialog>
 
+      {dialog === 'collections' && <GameCollectionsDialog game={game} onClose={() => setDialog(null)} />}
+      {dialog === 'session' && <SessionDialog gameId={game.id} onClose={() => setDialog(null)} />}
+      {dialog === 'prices' && <PriceHistoryDialog game={game} readOnly={!wish} onClose={() => setDialog(null)} />}
+
       {buying && (
         <PurchaseDialog
           game={game}
@@ -207,6 +279,61 @@ function Details({ game }) {
 
       {viewer !== null && <Lightbox images={gallery} index={viewer} title={game.title} onChange={setViewer} onClose={() => setViewer(null)} />}
     </article>
+  );
+}
+
+function GameCollectionsTags({ gameId }) {
+  const collections = useGameCollections(gameId);
+  const items = collections.data?.items ?? [];
+  if (!items.length) return null;
+  return (
+    <ul className="mt-3 flex list-none flex-wrap gap-1.5 p-0" aria-label="Coleções">
+      {items.map((c) => (
+        <li key={c.id}>
+          <Link to={`/colecoes/${c.id}`} className="tag no-underline hover:border-cyan hover:text-cyan">
+            <FiFolder aria-hidden="true" /> {c.name}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Histórico de sessões do jogo e divisão das horas (saldo antigo × diário). */
+function GameSessions({ game, onAdd }) {
+  const sessions = useSessions({ gameId: game.id, pageSize: 10 });
+  return (
+    <section aria-labelledby="sessoes-jogo" className="mt-7">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="sessoes-jogo" className="text-base text-muted">
+          Diário de jogatina
+        </h2>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onAdd}>
+          <FiClock aria-hidden="true" /> Registrar sessão
+        </button>
+      </div>
+      <p className="mb-3 text-sm text-muted">
+        Total <span className="num text-ink">{formatHours(game.playTimeMinutes)}</span> ={' '}
+        <span className="num">{formatHours(game.legacyPlayMinutes)}</span> de saldo anterior (sem data) +{' '}
+        <span className="num text-violet">{formatHours(game.sessionMinutes)}</span> em sessões.
+      </p>
+      {sessions.isPending ? (
+        <LoadingState />
+      ) : sessions.isError ? (
+        <ErrorState error={sessions.error} onRetry={sessions.refetch} />
+      ) : sessions.data.items.length === 0 ? (
+        <p className="text-sm text-faint">Nenhuma sessão registrada para este jogo.</p>
+      ) : (
+        <>
+          <SessionList sessions={sessions.data.items} showGame={false} />
+          {sessions.data.total > sessions.data.items.length && (
+            <p className="mt-2 text-sm">
+              <Link to={`/diario?jogo=${game.id}`}>Ver as {sessions.data.total} sessões no diário</Link>
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

@@ -1,24 +1,30 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------
-   Biblioteca de Jogos — sistema visual "terminal de inventário"
-   Base grafite/azul-noite, ação em ciano, âmbar só para destaque e
-   magenta só para a lista de desejos.
+   Biblioteca de Jogos 3.0 — "Player Hub"
+   HUD de perfil de jogador: azul-noite e grafite, ciano/azul elétrico para
+   ação, violeta para progressão e XP, dourado (âmbar) para conquistas e
+   destaque, magenta só para a lista de desejos.
    ------------------------------------------------------------------ */
 
 @theme {
-  --color-void: #070b12;
-  --color-panel: #0c121c;
-  --color-panel-2: #111a27;
-  --color-panel-3: #172234;
-  --color-line: #1f2c40;
-  --color-line-strong: #2f4362;
-  --color-ink: #e2eaf4;
-  --color-muted: #8d9db4;
-  --color-faint: #5d6e87;
+  --color-void: #060a13;
+  --color-panel: #0b111d;
+  --color-panel-2: #101827;
+  --color-panel-3: #162136;
+  --color-line: #1c2a42;
+  --color-line-strong: #2d4164;
+  --color-ink: #e4ecf7;
+  --color-muted: #8f9fba;
+  --color-faint: #5d6e8b;
   --color-cyan: #39e1ea;
   --color-cyan-soft: #39e1ea1f;
   --color-cyan-ink: #02181b;
+  --color-blue: #5b95ff;
+  --color-blue-soft: #5b95ff1f;
+  --color-violet: #a88bff;
+  --color-violet-soft: #a88bff1f;
+  --color-violet-ink: #12082b;
   --color-amber: #ffb547;
   --color-amber-soft: #ffb5471f;
   --color-magenta: #ff5aa5;
@@ -44,11 +50,14 @@
     margin: 0;
     min-height: 100dvh;
     background-color: var(--color-void);
-    /* grade técnica muito sutil */
+    /* brilho difuso de progressão (violeta) e ação (ciano) + grade técnica muito sutil */
     background-image:
-      linear-gradient(to right, #ffffff05 1px, transparent 1px),
-      linear-gradient(to bottom, #ffffff05 1px, transparent 1px);
-    background-size: 32px 32px;
+      radial-gradient(60rem 40rem at 0% -10%, #a88bff14, transparent 60%),
+      radial-gradient(50rem 36rem at 110% 0%, #39e1ea0e, transparent 60%),
+      linear-gradient(to right, #ffffff04 1px, transparent 1px),
+      linear-gradient(to bottom, #ffffff04 1px, transparent 1px);
+    background-size: auto, auto, 32px 32px, 32px 32px;
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 1rem;
@@ -105,7 +114,7 @@
     clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
   }
   .panel > .panel-body {
-    background: var(--color-panel);
+    background: color-mix(in srgb, var(--color-panel) 94%, transparent);
     height: 100%;
     clip-path: polygon(0 0, calc(100% - var(--cut) + 0.5px) 0, 100% calc(var(--cut) - 0.5px), 100% 100%, 0 100%);
   }
@@ -257,6 +266,19 @@
   .segmented label:first-child {
     border-left: 0;
   }
+  /* Em telas estreitas, quatro opções viram uma grade 2×2 */
+  @media (max-width: 30rem) {
+    .segmented-wrap {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .segmented-wrap label:nth-child(odd) {
+      border-left: 0;
+    }
+    .segmented-wrap label:nth-child(n + 3) {
+      border-top: 1px solid var(--color-line-strong);
+    }
+  }
   .segmented input {
     position: absolute;
     opacity: 0;
@@ -350,6 +372,222 @@
     background: #02050acc;
     backdrop-filter: blur(2px);
   }
+  dialog.modal-wide {
+    width: min(48rem, calc(100vw - 2rem));
+  }
+
+  /* --- Player Hub ------------------------------------------------- */
+
+  /* Painel de destaque: borda em gradiente ciano → violeta */
+  .panel-accent {
+    background: linear-gradient(135deg, #39e1ea8c, #2d4164 40%, #a88bff8c);
+  }
+  .panel-gold {
+    background: linear-gradient(135deg, #ffb547b3, #2d4164 55%, #ffb54766);
+  }
+  .panel-accent > .panel-body,
+  .panel-gold > .panel-body {
+    background:
+      linear-gradient(180deg, #ffffff06, transparent 40%),
+      color-mix(in srgb, var(--color-panel) 96%, transparent);
+  }
+
+  /* Rótulo de HUD: pequeno, com traço diagonal à esquerda (sem caixa alta) */
+  .hud-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    letter-spacing: 0.03em;
+  }
+  .hud-label::before {
+    content: "";
+    width: 0.7rem;
+    height: 2px;
+    background: currentColor;
+    transform: skewX(-40deg);
+    opacity: 0.7;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+  .section-title > h2 {
+    font-size: 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .section-title > h2::before {
+    content: "";
+    width: 0.3rem;
+    height: 1.1rem;
+    background: var(--section-accent, var(--color-cyan));
+    clip-path: polygon(0 0, 100% 18%, 100% 100%, 0 82%);
+  }
+
+  /* Barra de XP segmentada */
+  .xp-track {
+    position: relative;
+    height: 0.65rem;
+    background: var(--color-panel-3);
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+    overflow: hidden;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  }
+  .xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7d5cff, var(--color-violet) 60%, var(--color-blue));
+    transition: width 600ms cubic-bezier(.2,.8,.2,1);
+  }
+  .xp-track::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), #060a13aa calc(10% - 2px) 10%);
+    pointer-events: none;
+  }
+  .progress-track {
+    height: 0.4rem;
+    background: var(--color-panel-3);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--progress-color, var(--color-cyan));
+  }
+
+  /* Avatar com moldura chanfrada */
+  .avatar-frame {
+    --cut: 14%;
+    padding: 2px;
+    background: linear-gradient(135deg, var(--color-cyan), var(--color-violet));
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  }
+  .avatar-frame > * {
+    clip-path: inherit;
+  }
+
+  /* Raridade das conquistas (cor + rótulo textual, nunca só cor) */
+  .rarity-COMMON { --rarity: #9fb0c8; }
+  .rarity-RARE { --rarity: var(--color-blue); }
+  .rarity-EPIC { --rarity: var(--color-violet); }
+  .rarity-LEGENDARY { --rarity: var(--color-amber); }
+
+  /* Interruptor acessível (checkbox nativo) */
+  .switch {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    width: 2.6rem;
+    height: 1.45rem;
+  }
+  .switch input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .switch span {
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    background: var(--color-panel-3);
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+    transition: background-color 150ms ease;
+  }
+  .switch span::after {
+    content: "";
+    position: absolute;
+    top: 0.2rem;
+    left: 0.2rem;
+    width: 1.05rem;
+    height: 1.05rem;
+    background: var(--color-muted);
+    transition: transform 150ms ease, background-color 150ms ease;
+  }
+  .switch input:checked + span {
+    background: var(--color-cyan-soft);
+    box-shadow: inset 0 0 0 1px var(--color-cyan);
+  }
+  .switch input:checked + span::after {
+    transform: translateX(1.15rem);
+    background: var(--color-cyan);
+  }
+  .switch input:focus-visible + span {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: 2px;
+  }
+
+  /* Cartão de capa compacto (favoritos, jogando agora, coleções) */
+  .tile-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .tile-link:hover .tile-cover,
+  .tile-link:focus-visible .tile-cover {
+    box-shadow: 0 0 0 1px var(--color-cyan);
+  }
+  .tile-cover {
+    box-shadow: 0 0 0 1px var(--color-line);
+    transition: box-shadow 120ms ease;
+  }
+
+  /* Calendário de atividade do diário */
+  .heat-0 { background: var(--color-panel-3); }
+  .heat-1 { background: #a88bff33; }
+  .heat-2 { background: #a88bff66; }
+  .heat-3 { background: #a88bffaa; }
+  .heat-4 { background: var(--color-violet); color: var(--color-violet-ink); }
+}
+
+/* Aviso de conquista/nível: entra uma vez, sem bloquear nada */
+@keyframes unlock-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes unlock-shine {
+  from {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-20deg);
+  }
+}
+.unlock-card {
+  animation: unlock-in 320ms cubic-bezier(.2,.8,.2,1) both;
+  position: relative;
+  overflow: hidden;
+}
+.unlock-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #ffffff14, transparent);
+  animation: unlock-shine 1.2s 200ms ease-out 1 both;
+  pointer-events: none;
+}
+@keyframes pop {
+  50% { transform: scale(1.18); }
+}
+.pop {
+  animation: pop 260ms ease-out 1;
 }
 
 /* Entrada da página: um único movimento sutil, desligado se o usuário preferir */

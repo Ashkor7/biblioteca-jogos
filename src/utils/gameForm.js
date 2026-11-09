@@ -19,6 +19,11 @@ export const emptyGameForm = {
   reviewText: '',
   categories: [],
   coverUrl: '',
+  completedAt: '',
+  targetPrice: '',
+  wishPriority: '',
+  preferredStore: '',
+  wishNotes: '',
 };
 
 export function gameToForm(game) {
@@ -37,6 +42,11 @@ export function gameToForm(game) {
     reviewText: game.reviewText ?? '',
     categories: game.categories.map((c) => c.name),
     coverUrl: '',
+    completedAt: game.completedAt ? game.completedAt.slice(0, 10) : '',
+    targetPrice: moneyToInput(game.targetPrice),
+    wishPriority: game.wishPriority ?? '',
+    preferredStore: game.preferredStore?.name ?? '',
+    wishNotes: game.wishNotes ?? '',
   };
 }
 
@@ -62,6 +72,12 @@ export function formToPayload(values) {
     reviewText: blankToNull(values.reviewText),
     categories: values.categories,
     coverUrl: blankToNull(values.coverUrl),
+    // Vazio = não enviar: o servidor usa hoje ao marcar como zerado e mantém a data já salva.
+    completedAt: values.playStatus === 'COMPLETED' && values.completedAt ? values.completedAt : undefined,
+    targetPrice: blankToNull(values.targetPrice),
+    wishPriority: values.wishPriority || null,
+    preferredStore: blankToNull(values.preferredStore),
+    wishNotes: blankToNull(values.wishNotes),
   };
 }
 

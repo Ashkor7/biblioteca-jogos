@@ -20,6 +20,17 @@ import {
   statisticsRouter,
   importRouter,
 } from './routes/catalog.js';
+import {
+  profileRouter,
+  favoritesRouter,
+  sessionsRouter,
+  collectionsRouter,
+  goalsRouter,
+  progressionRouter,
+  priceRouter,
+  financeRouter,
+  publicRouter,
+} from './routes/player.js';
 
 export function createApp() {
   const app = express();
@@ -61,6 +72,7 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRouter());
+  app.use('/api/games/:id/prices', priceRouter());
   app.use('/api/games', gamesRouter());
   app.use('/api/platforms', platformsRouter());
   app.use('/api/stores', storesRouter());
@@ -68,6 +80,14 @@ export function createApp() {
   app.use('/api/wishlist', wishlistRouter());
   app.use('/api/statistics', statisticsRouter());
   app.use('/api/import', importRouter());
+  app.use('/api/statistics/finance', financeRouter());
+  app.use('/api/profile', profileRouter());
+  app.use('/api/favorites', favoritesRouter());
+  app.use('/api/sessions', sessionsRouter());
+  app.use('/api/collections', collectionsRouter());
+  app.use('/api/goals', goalsRouter());
+  app.use('/api/progression', progressionRouter());
+  app.use('/api/public', publicRouter());
   app.use('/api', notFoundHandler);
 
   app.use(

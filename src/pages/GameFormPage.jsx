@@ -13,7 +13,7 @@ import ImageManager from '../components/ImageManager.jsx';
 import { LoadingState, ErrorState } from '../components/States.jsx';
 import { emptyGameForm, gameToForm, formToPayload, makeGameResolver, apiFieldsToForm } from '../utils/gameForm.js';
 import { describeDifference } from '../utils/format.js';
-import { COLLECTION_CONDITIONS, PLAY_STATUS_LABELS, moneyToCents } from '../../shared/domain.js';
+import { COLLECTION_CONDITIONS, PLAY_STATUS_LABELS, WISH_PRIORITY_LABELS, LIMITS, moneyToCents, minutesToHours, todayIn } from '../../shared/domain.js';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/avif';
 
@@ -66,6 +66,9 @@ function GameForm({ game }) {
   const originalPrice = useWatch({ control, name: 'originalPrice' });
   const paidPrice = useWatch({ control, name: 'paidPrice' });
   const coverUrl = useWatch({ control, name: 'coverUrl' });
+  const playStatus = useWatch({ control, name: 'playStatus' });
+  const preferredListId = useId();
+  const sessionHours = game?.sessionMinutes ? minutesToHours(game.sessionMinutes) : 0;
   const wishlist = condition === 'WISHLIST';
 
   const preview = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
@@ -205,8 +208,38 @@ function GameForm({ game }) {
               <Field label="Preço de referência" error={errors.originalPrice?.message} hint="Opcional. Preço cheio, sem desconto.">
                 {(a11y) => <MoneyInput {...a11y} {...register('originalPrice')} />}
               </Field>
-              <Field label="Preço atual" error={errors.currentWishPrice?.message} hint="Opcional. O valor que você viu numa loja; não é atualizado automaticamente.">
+              <Field label="Último preço visto" error={errors.currentWishPrice?.message} hint="Opcional. Digitado por você; entra no histórico de preços com a data de hoje.">
                 {(a11y) => <MoneyInput {...a11y} {...register('currentWishPrice')} />}
+              </Field>
+              <Field label="Preço-alvo" error={errors.targetPrice?.message} hint="Opcional. Quanto você aceita pagar.">
+                {(a11y) => <MoneyInput {...a11y} {...register('targetPrice')} />}
+              </Field>
+              <Field label="Prioridade" error={errors.wishPriority?.message}>
+                {(a11y) => (
+                  <select {...a11y} {...register('wishPriority')} className="input">
+                    <option value="">Sem prioridade</option>
+                    {Object.entries(WISH_PRIORITY_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+              <Field label="Loja preferida" error={errors.preferredStore?.message} hint="Opcional. Onde pretende comprar." className="sm:col-span-2">
+                {(a11y) => (
+                  <>
+                    <input {...a11y} {...register('preferredStore')} className="input" list={preferredListId} autoComplete="off" maxLength={60} />
+                    <datalist id={preferredListId}>
+                      {stores.data?.items.map((s) => (
+                        <option key={s.id} value={s.name} />
+                      ))}
+                    </datalist>
+                  </>
+                )}
+              </Field>
+              <Field label="Notas pessoais" error={errors.wishNotes?.message} hint="Opcional. Ex.: esperar a edição completa." className="sm:col-span-2">
+                {(a11y) => <textarea {...a11y} {...register('wishNotes')} className="input" rows={3} maxLength={LIMITS.wishNotesMax} />}
               </Field>
             </div>
           ) : (
@@ -246,7 +279,7 @@ function GameForm({ game }) {
             <div className="space-y-5">
               <fieldset className="border-0 p-0">
                 <legend className="field-label">Estado</legend>
-                <div className="segmented" role="radiogroup">
+                <div className="segmented segmented-wrap" role="radiogroup">
                   {Object.entries(PLAY_STATUS_LABELS).map(([value, label]) => (
                     <label key={value}>
                       <input type="radio" value={value} {...register('playStatus')} />
@@ -255,7 +288,24 @@ function GameForm({ game }) {
                   ))}
                 </div>
               </fieldset>
-              <Field label="Horas jogadas" error={errors.hours?.message} hint="Aceita decimais, ex.: 12,5">
+              {playStatus === 'COMPLETED' && (
+                <Field
+                  label="Zerado em"
+                  error={errors.completedAt?.message}
+                  hint={game?.playStatus === 'COMPLETED' ? 'Opcional. Data em que terminou o jogo.' : 'Opcional. Em branco, conta como zerado hoje (vale para metas do ano).'}
+                >
+                  {(a11y) => <input {...a11y} {...register('completedAt')} type="date" max={todayIn()} className="input max-w-52" />}
+                </Field>
+              )}
+              <Field
+                label="Horas jogadas (total)"
+                error={errors.hours?.message}
+                hint={
+                  sessionHours
+                    ? `Inclui ${String(sessionHours).replace('.', ',')} h registradas no diário (mínimo). Aceita decimais, ex.: 12,5`
+                    : 'Aceita decimais, ex.: 12,5. Para registrar sessões com data, use o Diário de jogatina.'
+                }
+              >
                 {(a11y) => <input {...a11y} {...register('hours')} inputMode="decimal" className="input num max-w-40" placeholder="0" autoComplete="off" />}
               </Field>
               <Controller

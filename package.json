@@ -29,7 +29,8 @@
     "db:studio": "npm run db:studio -w server",
     "admin:create": "npm run admin:create -w server --",
     "import:legacy": "npm run import:legacy -w server --",
-    "check": "npm run lint && npm test && npm run build"
+    "check": "npm run lint && npm test && npm run build",
+    "db:backup": "npm run db:backup -w server"
   },
   "dependencies": {
     "@fontsource/chakra-petch": "^5.2.0",

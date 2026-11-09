@@ -30,6 +30,7 @@ export async function overview(viewerId, rawQuery = {}) {
       count(*) FILTER (WHERE "ownershipStatus" = 'OWNED') AS owned,
       count(*) FILTER (WHERE "ownershipStatus" = 'OWNED' AND "playStatus" = 'COMPLETED') AS completed,
       count(*) FILTER (WHERE "ownershipStatus" = 'OWNED' AND "playStatus" = 'NOT_STARTED') AS not_started,
+      count(*) FILTER (WHERE "ownershipStatus" = 'OWNED' AND "playStatus" = 'PLAYING') AS playing,
       count(*) FILTER (WHERE "ownershipStatus" = 'OWNED' AND "playStatus" = 'ABANDONED') AS abandoned,
       count(*) FILTER (WHERE "ownershipStatus" = 'OWNED' AND "mediaType" = 'PHYSICAL') AS physical,
       count(*) FILTER (WHERE "ownershipStatus" = 'OWNED' AND "mediaType" = 'DIGITAL') AS digital,
@@ -50,6 +51,7 @@ export async function overview(viewerId, rawQuery = {}) {
       owned: int(row.owned),
       completed: int(row.completed),
       notStarted: int(row.not_started),
+      playing: int(row.playing),
       abandoned: int(row.abandoned),
       physical: int(row.physical),
       digital: int(row.digital),
@@ -150,5 +152,122 @@ export async function byCategory(viewerId) {
     totalMinutes: int(totals.total_minutes),
     uncategorized: { games: int(totals.uncategorized_games), minutes: int(totals.uncategorized_minutes) },
     note: 'Um jogo com várias categorias soma suas horas em cada uma delas; por isso a soma por categoria pode passar do total geral.',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard financeiro 2.0 — mesma regra da visão geral: só jogos ADQUIRIDOS com
+// preço original E pago entram nas somas. Compras acima da referência entram com
+// economia negativa (reduzem o total, não são ignoradas). Sem data = "Sem data".
+// ---------------------------------------------------------------------------
+
+const PRICED = Prisma.sql`g."originalPrice" IS NOT NULL AND g."paidPrice" IS NOT NULL`;
+
+const financeQuery = z
+  .object({
+    year: z.coerce.number().int().min(1970).max(2200).optional(),
+    month: z.coerce.number().int().min(1).max(12).optional(),
+    storeId: z.uuid('Loja inválida').optional(),
+    platformId: z.uuid('Plataforma inválida').optional(),
+  })
+  .refine((q) => !q.month || q.year, { path: ['month'], message: 'Escolha o ano para filtrar por mês' });
+
+function moneyRow(r) {
+  return {
+    purchases: int(r.purchases),
+    pricedPurchases: int(r.priced),
+    ...savings(r.original_total, r.paid_total),
+  };
+}
+
+export async function finance(viewerId, rawQuery = {}) {
+  const q = parseOrThrow(financeQuery, rawQuery, 'Filtros inválidos');
+  const scope = Prisma.sql`g."ownerId" = ${viewerId}::uuid AND g."ownershipStatus" = 'OWNED'
+    ${q.storeId ? Prisma.sql`AND g."storeId" = ${q.storeId}::uuid` : Prisma.empty}
+    ${q.platformId ? Prisma.sql`AND g."platformId" = ${q.platformId}::uuid` : Prisma.empty}`;
+  const period = q.year
+    ? Prisma.sql`AND g."purchasedAt" IS NOT NULL AND extract(year FROM g."purchasedAt") = ${q.year}
+        ${q.month ? Prisma.sql`AND extract(month FROM g."purchasedAt") = ${q.month}` : Prisma.empty}`
+    : Prisma.empty;
+  const sums = Prisma.sql`
+    count(*) AS purchases,
+    count(*) FILTER (WHERE ${PRICED}) AS priced,
+    COALESCE(sum(g."originalPrice") FILTER (WHERE ${PRICED}), 0) AS original_total,
+    COALESCE(sum(g."paidPrice") FILTER (WHERE ${PRICED}), 0) AS paid_total`;
+
+  const [totals] = await prisma.$queryRaw`
+    SELECT ${sums},
+      count(*) FILTER (WHERE ${PRICED} AND g."paidPrice" > g."originalPrice") AS overpaid,
+      count(*) FILTER (WHERE NOT (${PRICED})) AS incomplete,
+      count(*) FILTER (WHERE g."purchasedAt" IS NULL) AS undated
+    FROM "Game" g WHERE ${scope} ${period}`;
+  const monthly = await prisma.$queryRaw`
+    SELECT to_char(g."purchasedAt", 'YYYY-MM') AS period, ${sums}
+    FROM "Game" g WHERE ${scope} ${period} AND g."purchasedAt" IS NOT NULL
+    GROUP BY 1 ORDER BY 1`;
+  const yearly = await prisma.$queryRaw`
+    SELECT to_char(g."purchasedAt", 'YYYY') AS period, ${sums}
+    FROM "Game" g WHERE ${scope} ${period} AND g."purchasedAt" IS NOT NULL
+    GROUP BY 1 ORDER BY 1`;
+  const [undated] = q.year
+    ? [null]
+    : await prisma.$queryRaw`SELECT ${sums} FROM "Game" g WHERE ${scope} AND g."purchasedAt" IS NULL`;
+  const stores = await prisma.$queryRaw`
+    SELECT s.id, s.name, ${sums}
+    FROM "Game" g JOIN "Store" s ON s.id = g."storeId"
+    WHERE ${scope} ${period} GROUP BY s.id, s.name`;
+  const platforms = await prisma.$queryRaw`
+    SELECT p.id, p.name, p.slug, ${sums}
+    FROM "Game" g JOIN "Platform" p ON p.id = g."platformId"
+    WHERE ${scope} ${period} GROUP BY p.id, p.name, p.slug`;
+  const top = await prisma.$queryRaw`
+    SELECT g.id, g.title, p.name AS platform, s.name AS store, g."purchasedAt",
+      g."originalPrice" AS original, g."paidPrice" AS paid, (g."originalPrice" - g."paidPrice") AS saved
+    FROM "Game" g JOIN "Platform" p ON p.id = g."platformId" LEFT JOIN "Store" s ON s.id = g."storeId"
+    WHERE ${scope} ${period} AND ${PRICED} AND g."originalPrice" > g."paidPrice"
+    ORDER BY saved DESC, g.title ASC LIMIT 10`;
+
+  const total = moneyRow(totals);
+  const paid = D(total.paidTotal);
+  let running = D(0);
+  const monthlyRows = monthly.map((r) => {
+    const row = { period: r.period, ...moneyRow(r) };
+    running = running.plus(row.paidTotal);
+    return { ...row, cumulativePaid: running.toFixed(2) };
+  });
+  const byMoney = (a, b) => D(b.paidTotal).comparedTo(D(a.paidTotal)) || b.purchases - a.purchases;
+
+  return {
+    filters: q,
+    totals: {
+      ...total,
+      // Desconto médio ponderado = economia total / valor original total
+      weightedDiscountPercent: total.discountPercent,
+      averagePaid: total.pricedPurchases ? paid.div(total.pricedPurchases).toFixed(2) : null,
+      overpaidGames: int(totals.overpaid),
+      incompleteGames: int(totals.incomplete),
+      undatedPurchases: int(totals.undated),
+    },
+    monthly: monthlyRows,
+    yearly: yearly.map((r) => ({ period: r.period, ...moneyRow(r) })),
+    undated: undated ? moneyRow(undated) : null,
+    stores: stores.map((r) => ({ id: r.id, name: r.name, ...moneyRow(r) })).sort(byMoney),
+    platforms: platforms.map((r) => ({ id: r.id, name: r.name, slug: r.slug, ...moneyRow(r) })).sort(byMoney),
+    topSavings: top.map((r) => ({
+      id: r.id,
+      title: r.title,
+      platform: r.platform,
+      store: r.store,
+      purchasedAt: r.purchasedAt,
+      originalPrice: D(r.original).toFixed(2),
+      paidPrice: D(r.paid).toFixed(2),
+      savings: D(r.saved).toFixed(2),
+      discountPercent: Number(D(r.saved).div(D(r.original)).times(100).toFixed(2)),
+    })),
+    notes: [
+      'Valor original = soma dos preços de referência informados (sem desconto). Não é o valor de mercado atual da coleção.',
+      'Só entram nas somas jogos adquiridos com preço original e pago. Itens da lista de desejos nunca contam como compra.',
+      'Compras sem data aparecem em "Sem data" e ficam fora da linha do tempo.',
+    ],
   };
 }
