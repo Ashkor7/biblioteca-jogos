@@ -16,6 +16,7 @@ import {
 } from '../../../shared/progression.js';
 import { ensureProfile, syncNow } from './progressionService.js';
 import * as stats from './statisticsService.js';
+import { todayIso } from './timeService.js';
 
 export const pickPrivacy = (profile) => Object.fromEntries(PRIVACY_KEYS.map((k) => [k, profile[k]]));
 
@@ -139,15 +140,23 @@ export async function updatePrivacy(userId, body) {
 
 /** Cartões do perfil privado: coleção, jogatina, conquistas e finanças completas. */
 export async function profileStats(userId) {
-  const [overview, platforms, storesByCount, storesBySavings, unlocked] = await Promise.all([
+  const year = Number(todayIso().slice(0, 4));
+  const [overview, platforms, storesByCount, storesBySavings, unlocked, [completedYear]] = await Promise.all([
     stats.overview(userId),
     stats.byPlatform(userId),
     stats.byStore(userId, { sort: 'count' }),
     stats.byStore(userId, { sort: 'savings' }),
     prisma.userAchievement.count({ where: { userId } }),
+    // Só jogos com data de conclusão conhecida (zerados a partir da v3 ou com data informada)
+    prisma.$queryRaw`
+      SELECT count(*) AS n FROM "Game"
+      WHERE "ownerId" = ${userId}::uuid AND "ownershipStatus" = 'OWNED' AND "playStatus" = 'COMPLETED'
+        AND extract(year FROM (("completedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${config.APP_TIMEZONE})) = ${year}`,
   ]);
   const lib = overview.library;
   return {
+    year,
+    completedThisYear: Number(completedYear.n),
     library: {
       ...lib,
       completionPercent: lib.owned ? Math.round((lib.completed / lib.owned) * 1000) / 10 : null,

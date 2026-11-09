@@ -37,7 +37,11 @@ async function refreshLatest(tx, game) {
   });
   await tx.game.update({
     where: { id: game.id },
-    data: { currentWishPrice: latest?.price ?? null, wishPriceUpdatedAt: latest ? latest.recordedOn : null },
+    // Meio-dia UTC do dia registrado: a data exibida não "volta um dia" em fusos negativos (Brasil).
+    data: {
+      currentWishPrice: latest?.price ?? null,
+      wishPriceUpdatedAt: latest ? new Date(`${isoDate(latest.recordedOn)}T12:00:00.000Z`) : null,
+    },
   });
 }
 
