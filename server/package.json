@@ -20,7 +20,8 @@
     "admin:create": "node scripts/create-admin.js",
     "import:legacy": "node scripts/import-legacy.js",
     "postinstall": "prisma generate",
-    "db:embedded": "node scripts/embedded-db.js"
+    "db:embedded": "node scripts/embedded-db.js",
+    "db:backup": "node scripts/backup-db.js"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",
