@@ -28,7 +28,25 @@ const schema = z.object({
     ),
   SESSION_TTL_HOURS: z.coerce.number().positive().default(168),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
+  // Obsoleta desde a v3: o compartilhamento passou a ser o perfil público (/u/:username),
+  // que respeita as preferências de privacidade. Mantida só para avisar quem ainda a usa.
   PUBLIC_READ: bool(false),
+  // Fuso usado para "hoje", semana e mês do diário e das metas.
+  APP_TIMEZONE: z
+    .string()
+    .default('America/Sao_Paulo')
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'APP_TIMEZONE inválido (use um fuso IANA, ex.: America/Sao_Paulo)'),
+  // Endereço público do app (ex.: https://biblioteca.exemplo.com). Sem ele, a interface não
+  // oferece "copiar link" do perfil, porque localhost não é acessível por outras pessoas.
+  PUBLIC_APP_URL: z.url('PUBLIC_APP_URL precisa ser uma URL completa').optional(),
+  PUBLIC_RATE_LIMIT: z.coerce.number().int().positive().default(120),
   COOKIE_SECURE: z.enum(['true', 'false', 'auto']).default('auto'),
   UPLOAD_DIR: z.string().default(path.join(SERVER_ROOT, 'uploads')),
   MAX_UPLOAD_MB: z.coerce.number().positive().max(50).default(5),

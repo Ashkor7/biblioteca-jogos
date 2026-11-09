@@ -31,7 +31,7 @@ export function authRouter() {
   });
 
   router.get('/me', (req, res) => {
-    res.json({ user: req.user, publicRead: config.PUBLIC_READ });
+    res.json({ user: req.user, publicAppUrl: config.PUBLIC_APP_URL ?? null });
   });
 
   return router;

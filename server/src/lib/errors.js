@@ -19,6 +19,7 @@ function defaultCode(status) {
       401: 'UNAUTHENTICATED',
       403: 'FORBIDDEN',
       404: 'NOT_FOUND',
+      405: 'METHOD_NOT_ALLOWED',
       409: 'CONFLICT',
       413: 'PAYLOAD_TOO_LARGE',
       415: 'UNSUPPORTED_MEDIA_TYPE',

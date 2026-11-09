@@ -49,10 +49,15 @@ export async function findOrCreateCategories(tx, names) {
   return result;
 }
 
-/** Remove plataformas, lojas e categorias que ficaram sem nenhum jogo. */
+/**
+ * Remove plataformas, lojas e categorias que ficaram sem nenhum jogo. Uma loja
+ * continua existindo enquanto for a preferida de um desejo ou aparecer no histórico de preços.
+ */
 export async function pruneOrphans(tx) {
   await tx.category.deleteMany({ where: { games: { none: {} } } });
-  await tx.store.deleteMany({ where: { games: { none: {} } } });
+  await tx.store.deleteMany({
+    where: { games: { none: {} }, preferredFor: { none: {} }, priceEntries: { none: {} } },
+  });
   await tx.platform.deleteMany({ where: { games: { none: {} } } });
 }
 
