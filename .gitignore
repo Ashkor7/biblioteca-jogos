@@ -35,3 +35,6 @@ npm-debug.log*
 
 # Backups locais do banco (npm run db:backup) — contêm dados pessoais
 backups
+
+# Saídas do Playwright (capturas e snapshots locais)
+.playwright-mcp

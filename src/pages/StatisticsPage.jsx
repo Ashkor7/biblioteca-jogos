@@ -2,6 +2,8 @@ import { useUrlFilters } from '../hooks/useUrlFilters.js';
 import { useOverview, useStoreStats, useCategoryStats, usePlatformStats } from '../hooks/queries.js';
 import PageHeader from '../components/PageHeader.jsx';
 import HBarChart from '../components/HBarChart.jsx';
+import DataTable from '../components/DataTable.jsx';
+import FinanceDashboard from '../components/FinanceDashboard.jsx';
 import { ReadoutStrip } from '../components/Readouts.jsx';
 import { LoadingState, ErrorState, EmptyState } from '../components/States.jsx';
 import { formatMoney, formatHours, formatPercent } from '../utils/format.js';
@@ -50,7 +52,7 @@ export default function StatisticsPage() {
             {
               label: 'Não iniciados',
               value: o.library.notStarted,
-              note: `${o.library.abandoned} ${o.library.abandoned === 1 ? 'abandonado' : 'abandonados'}`,
+              note: `${o.library.playing} jogando · ${o.library.abandoned} ${o.library.abandoned === 1 ? 'abandonado' : 'abandonados'}`,
             },
             { label: 'Horas totais', value: formatHours(o.playTime.totalMinutes), note: 'cada jogo contado uma vez' },
           ]}
@@ -64,7 +66,7 @@ export default function StatisticsPage() {
         <ReadoutStrip
           label="Dinheiro"
           items={[
-            { label: 'Valor sem desconto', value: formatMoney(o.finance.originalTotal), note: 'soma dos preços originais' },
+            { label: 'Valor original (referência)', value: formatMoney(o.finance.originalTotal), note: 'soma dos preços originais, não é valor de mercado' },
             { label: 'Total pago', value: formatMoney(o.finance.paidTotal) },
             {
               label: savingsValue >= 0 ? 'Economia líquida' : 'Gasto acima da referência',
@@ -101,6 +103,7 @@ export default function StatisticsPage() {
         )}
       </section>
 
+      <FinanceDashboard />
       <StoresSection />
       <CategoriesSection />
       <PlatformsSection />
@@ -264,52 +267,5 @@ function PlatformsSection() {
         </div>
       )}
     </section>
-  );
-}
-
-function DataTable({ caption, columns, rows, footer }) {
-  return (
-    <div className="overflow-x-auto border border-line">
-      <table className="w-full min-w-[28rem] border-collapse text-sm">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr className="bg-panel-2">
-            {columns.map((c, i) => (
-              <th key={c} scope="col" className={`px-3 py-2 font-display font-semibold text-muted ${i === 0 ? 'text-left' : 'text-right'}`}>
-                {c}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, r) => (
-            <tr key={r} className="border-t border-line">
-              {row.map((cell, i) =>
-                i === 0 ? (
-                  <th key={i} scope="row" className="px-3 py-2 text-left font-normal text-ink">
-                    {cell}
-                  </th>
-                ) : (
-                  <td key={i} className="num px-3 py-2 text-right">
-                    {cell}
-                  </td>
-                ),
-              )}
-            </tr>
-          ))}
-        </tbody>
-        {footer && (
-          <tfoot>
-            <tr className="border-t border-line-strong bg-panel-2">
-              {footer.map((cell, i) => (
-                <td key={i} className={`px-3 py-2 ${i === 0 ? 'text-left font-display font-semibold' : 'num text-right'}`}>
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          </tfoot>
-        )}
-      </table>
-    </div>
   );
 }
