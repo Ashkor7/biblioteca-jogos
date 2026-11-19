@@ -54,6 +54,25 @@ const schema = z.object({
   LEGACY_IMPORT_MAX_MB: z.coerce.number().positive().max(200).default(30),
   TRUST_PROXY: bool(false),
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(10),
+  // --- Steam (opcional). Sem chave, a importação aparece desativada e a API responde 503.
+  STEAM_API_KEY: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined)
+    .refine((v) => v === undefined || !PLACEHOLDER_RE.test(v), 'STEAM_API_KEY ainda é o texto de exemplo do .env.example')
+    .refine(
+      (v) => v === undefined || /^[0-9A-F]{32}$/i.test(v),
+      'STEAM_API_KEY inválida: são 32 caracteres hexadecimais (gere em https://steamcommunity.com/dev/apikey)',
+    ),
+  // Validade do cache de appdetails (compartilhado entre usuários).
+  STEAM_CACHE_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  // Intervalo mínimo entre chamadas: a loja (appdetails) tem limite de uso baixo.
+  STEAM_STORE_INTERVAL_MS: z.coerce.number().int().min(0).max(60_000).default(1500),
+  STEAM_API_INTERVAL_MS: z.coerce.number().int().min(0).max(60_000).default(250),
+  STEAM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(10_000),
+  // Requisições por minuto, por usuário, nas rotas que chamam a Steam.
+  STEAM_RATE_LIMIT: z.coerce.number().int().positive().default(30),
 });
 
 function loadConfig() {

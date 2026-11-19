@@ -31,6 +31,7 @@ import {
   financeRouter,
   publicRouter,
 } from './routes/player.js';
+import { steamRouter } from './routes/steam.js';
 
 export function createApp() {
   const app = express();
@@ -88,6 +89,7 @@ export function createApp() {
   app.use('/api/goals', goalsRouter());
   app.use('/api/progression', progressionRouter());
   app.use('/api/public', publicRouter());
+  app.use('/api/steam', steamRouter());
   app.use('/api', notFoundHandler);
 
   app.use(
