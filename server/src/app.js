@@ -10,6 +10,7 @@ import { PROJECT_ROOT } from './env.js';
 import { attachUser } from './middleware/auth.js';
 import { verifyOrigin } from './middleware/origin.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { getStorage, isStorageKey } from './lib/storage.js';
 import { authRouter } from './routes/auth.js';
 import { gamesRouter } from './routes/games.js';
 import {
@@ -92,10 +93,28 @@ export function createApp() {
   app.use('/api/steam', steamRouter());
   app.use('/api', notFoundHandler);
 
-  app.use(
-    '/uploads',
-    express.static(config.uploadDir, { index: false, dotfiles: 'deny', maxAge: '7d', immutable: true }),
-  );
+  // Imagens: pasta local servida direto, ou objetos do R2 lidos pela API (bucket privado).
+  if (config.STORAGE_DRIVER === 'local') {
+    app.use('/uploads', express.static(config.uploadDir, { index: false, dotfiles: 'deny', maxAge: '7d', immutable: true }));
+  } else {
+    app.get('/uploads/:key', async (req, res, next) => {
+      try {
+        if (!isStorageKey(req.params.key)) return res.status(404).end();
+        const file = await getStorage().get(req.params.key);
+        if (!file) return res.status(404).end();
+        res.set({
+          'Content-Type': file.mime,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'X-Content-Type-Options': 'nosniff',
+          ...(file.size ? { 'Content-Length': String(file.size) } : {}),
+        });
+        file.body.on('error', next);
+        file.body.pipe(res);
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
 
   // Produção: a própria API serve o build do Vite (um único processo/porta).
   const distDir = path.join(PROJECT_ROOT, 'dist');

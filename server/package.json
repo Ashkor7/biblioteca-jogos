@@ -27,6 +27,7 @@
     "uploads:push": "node scripts/push-uploads.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1172.0",
     "@prisma/client": "^6.16.0",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",

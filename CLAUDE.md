@@ -86,6 +86,7 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 - **Perfil público**: tudo privado por padrão e financeiro só com autorização explícita. A resposta de `/api/public` é montada por allowlist em `publicService`; nunca serialize o registro inteiro. Perfil privado e inexistente devolvem o mesmo 404. `PUBLIC_READ` está obsoleto e não deve voltar a abrir rotas administrativas.
 - **Steam** (detalhes em `docs/PLAYER_HUB.md` §8): só endereços fixos da Steam, nunca URL vinda do usuário; a `STEAM_API_KEY` nunca vai para logs, respostas ou frontend. Jogos importados são jogos comuns (`source=STEAM`). Ressincronizar **nunca** sobrescreve campos existentes; horas pela regra do máximo (`mergePlaytime`), sem tocar no diário nem no estado. Importação usa progressão retroativa e uma atividade `STEAM_IMPORTED` (fora do perfil público). Testes nunca usam rede: `setSteamClient(fakeSteamClient())` e `setRemoteImageFetch`.
 - **Zod 4**: `.default({})` num objeto devolve o objeto **sem** aplicar os defaults internos; use `.prefault({})`.
+- **Imagens** passam sempre por `saveImageBuffer`/`removeStoredFiles` (nunca `fs` direto): o backend pode ser o R2.
 - **Imagens**: tipo conferido por magic bytes, nome UUID gerado no servidor, arquivos apagados quando a imagem/jogo é removido. Nunca guardar Base64 no banco. Uma capa por jogo e um destaque por dono (índices parciais).
 
 ## Segurança
@@ -116,7 +117,7 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 
 ## Deploy
 
-Railway com `Dockerfile` + `railway.json` (pre-deploy `npm run db:deploy`, health `/api/health`, **1 réplica** por causa do job da Steam no processo). Imagens no volume (`UPLOAD_DIR=/data/uploads`). Passo a passo em `docs/DEPLOY_RAILWAY.md`.
+Principal (grátis): **Render + Neon + Cloudflare R2** (`render.yaml`, `docs/DEPLOY_RENDER.md`). Sem pre-deploy no plano grátis: o `dockerCommand` roda `npm run db:deploy` antes do `npm start`. Imagens com `STORAGE_DRIVER=r2` (`lib/storage.js`: backends `local`/`r2`, mesma interface; URLs sempre `/uploads/<key>`, servidas pela API a partir do bucket privado). Alternativa paga: Railway com `Dockerfile` + `railway.json` (pre-deploy `npm run db:deploy`, health `/api/health`, **1 réplica** por causa do job da Steam no processo). Imagens no volume (`UPLOAD_DIR=/data/uploads`). Passo a passo em `docs/DEPLOY_RAILWAY.md`.
 
 ## Git
 
