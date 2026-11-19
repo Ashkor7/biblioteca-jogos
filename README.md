@@ -180,6 +180,7 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 | `SIGNUP_RATE_LIMIT` | `5` | Cadastros por hora, por IP |
 | `UPLOAD_DIR` | `server/uploads` | Onde as imagens são gravadas |
 | `MAX_UPLOAD_MB` | `5` | Tamanho máximo por imagem |
+| `STORAGE_DRIVER` | `local` | `local` (pasta `UPLOAD_DIR`) ou `r2` (Cloudflare R2; exige `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`). Os endereços continuam `/uploads/<arquivo>`: com R2 a API lê do bucket privado |
 | `MAX_IMAGES_PER_GAME` | `20` | Limite da galeria |
 | `LEGACY_IMPORT_MAX_MB` | `30` | Limite do JSON de importação |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Usados por `npm run admin:create` |
@@ -302,6 +303,7 @@ Os testes da API aplicam as migrações num **banco separado** (`TEST_DATABASE_U
 | G: edição e exclusão sem órfãos | `server/tests/games.test.js` |
 | H: anônimo não escreve; CSRF; isolamento entre usuários | `server/tests/auth.test.js` |
 | Cadastro público, isolamento entre contas e plataforma compartilhada | `server/tests/signup.test.js` |
+| Imagens no R2 (gravar, servir por /uploads, apagar, falha do bucket) | `server/tests/storage-r2.test.js` |
 | Importação legada idempotente | `server/tests/legacy.test.js` |
 | Perfil, avatar/banner, privacidade, autorização | `server/tests/profile.test.js` |
 | Favoritos e coleções (ordem, posse, exclusão sem perder jogos) | `server/tests/collections.test.js` |
@@ -341,7 +343,9 @@ Na interface: prévia da Steam (seleção, filtros, estados vazio/erro/carregand
 
 ## Produção
 
-**Railway:** passo a passo em [`docs/DEPLOY_RAILWAY.md`](docs/DEPLOY_RAILWAY.md) (Dockerfile e `railway.json` já estão no repositório, inclusive como levar a biblioteca do seu PC com `db:restore` e `uploads:push`).
+**De graça (Render + Neon + Cloudflare R2):** passo a passo em [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md) (`render.yaml` no repositório).
+
+**Railway (pago, sem espera para acordar):** passo a passo em [`docs/DEPLOY_RAILWAY.md`](docs/DEPLOY_RAILWAY.md) (Dockerfile e `railway.json` já estão no repositório, inclusive como levar a biblioteca do seu PC com `db:restore` e `uploads:push`).
 
 ```powershell
 npm run build

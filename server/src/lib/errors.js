@@ -2,10 +2,10 @@ export class AppError extends Error {
   /**
    * @param {number} status código HTTP
    * @param {string} message mensagem em PT-BR para a interface
-   * @param {{ code?: string, fields?: Record<string,string> }} [extra]
+   * @param {{ code?: string, fields?: Record<string,string>, cause?: unknown }} [extra]
    */
   constructor(status, message, extra = {}) {
-    super(message);
+    super(message, extra.cause ? { cause: extra.cause } : undefined);
     this.status = status;
     this.code = extra.code ?? defaultCode(status);
     this.fields = extra.fields;

@@ -92,6 +92,14 @@ Referência técnica em `docs/PLAYER_HUB.md` §8; guia de uso no README (“Impo
 - [ ] Build do Dockerfile não foi testado localmente (não há Docker no PC); o primeiro deploy no Railway é o teste
 - [ ] Sem confirmação de e-mail nem recuperação de senha (precisam de serviço de e-mail)
 
+### Hospedagem grátis: Render + Neon + R2 (branch `feature/r2-render`, 19/11/2026)
+
+O dono escolheu hospedagem grátis (projeto de portfólio para ele e colegas).
+
+- [x] `lib/storage.js` com backends `local` e `r2` (SDK S3, bucket privado, imagens servidas pela API em `/uploads/<key>` com cache longo); `STORAGE_DRIVER` + `R2_*` validados em `config.js`
+- [x] `render.yaml` (Docker, plano Free, migrações no início porque o grátis não tem pre-deploy) e `docs/DEPLOY_RENDER.md`
+- [ ] Primeiro deploy real no Render ainda não feito (depende das contas do dono no Render, Neon e Cloudflare)
+
 ## 3. Ambiente do dono (Windows)
 
 - Node.js + npm e Git instalados. **Docker e PostgreSQL não estão instalados**: o banco roda com `npm run db:embedded` (PostgreSQL 18 embutido via npm, dados em `.pgdata/`, porta 5433).

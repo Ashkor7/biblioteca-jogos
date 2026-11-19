@@ -49,6 +49,12 @@ const schema = z.object({
   PUBLIC_RATE_LIMIT: z.coerce.number().int().positive().default(120),
   COOKIE_SECURE: z.enum(['true', 'false', 'auto']).default('auto'),
   UPLOAD_DIR: z.string().default(path.join(SERVER_ROOT, 'uploads')),
+  // Onde as imagens ficam: local (pasta UPLOAD_DIR) ou r2 (Cloudflare R2, para hosts sem disco persistente).
+  STORAGE_DRIVER: z.enum(['local', 'r2'], { error: 'STORAGE_DRIVER deve ser local ou r2' }).default('local'),
+  R2_ACCOUNT_ID: z.string().trim().optional(),
+  R2_ACCESS_KEY_ID: z.string().trim().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().trim().optional(),
+  R2_BUCKET: z.string().trim().optional(),
   MAX_UPLOAD_MB: z.coerce.number().positive().max(50).default(5),
   MAX_IMAGES_PER_GAME: z.coerce.number().int().positive().max(100).default(20),
   LEGACY_IMPORT_MAX_MB: z.coerce.number().positive().max(200).default(30),
@@ -77,6 +83,11 @@ const schema = z.object({
   STEAM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(10_000),
   // Requisições por minuto, por usuário, nas rotas que chamam a Steam.
   STEAM_RATE_LIMIT: z.coerce.number().int().positive().default(30),
+}).superRefine((env, ctx) => {
+  if (env.STORAGE_DRIVER !== 'r2') return;
+  for (const key of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET']) {
+    if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: `${key} é obrigatória com STORAGE_DRIVER=r2 (veja docs/DEPLOY_RENDER.md)` });
+  }
 });
 
 function loadConfig() {

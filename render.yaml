@@ -1,0 +1,39 @@
+# Blueprint do Render (plano grátis): site + API num serviço Docker.
+# Banco: Neon (grátis, não expira). Imagens: Cloudflare R2 (grátis até 10 GB).
+# Passo a passo em docs/DEPLOY_RENDER.md.
+services:
+  - type: web
+    name: nexus-play
+    runtime: docker
+    plan: free
+    # Região mais próxima do Brasil entre as do Render; crie o banco do Neon na AWS us-east-1.
+    region: virginia
+    branch: main
+    healthCheckPath: /api/health
+    # O plano grátis não tem pre-deploy: as migrações rodam antes de iniciar a API.
+    dockerCommand: sh -c "npm run db:deploy && npm start"
+    envVars:
+      - key: DATABASE_URL
+        sync: false # URL do Neon (conexão direta, sem "-pooler")
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CLIENT_ORIGIN
+        sync: false # https://<seu-serviço>.onrender.com
+      - key: PUBLIC_APP_URL
+        sync: false # o mesmo endereço
+      - key: TRUST_PROXY
+        value: 'true'
+      - key: ALLOW_SIGNUP
+        value: 'true'
+      - key: STORAGE_DRIVER
+        value: r2
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: STEAM_API_KEY
+        sync: false # opcional
