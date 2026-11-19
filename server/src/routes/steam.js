@@ -6,6 +6,7 @@ import { AppError } from '../lib/errors.js';
 import { parseOrThrow } from '../lib/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import * as account from '../services/steamAccountService.js';
+import * as importer from '../services/steamImportService.js';
 
 const flag = (fallback) =>
   z
@@ -46,6 +47,17 @@ export function steamRouter() {
   router.delete('/account', async (req, res) => {
     const { keepAppIds } = parseOrThrow(unlinkQuery, req.query, 'Opção inválida');
     res.json(await account.unlinkSteamAccount(req.user.id, { keepAppIds }));
+  });
+
+  router.post('/preview', limited, async (req, res) => {
+    res.json(await importer.previewSteam(req.user.id, req.body));
+  });
+  router.post('/import', limited, async (req, res) => {
+    res.status(201).json(await importer.importSteam(req.user.id, req.body));
+  });
+  router.get('/jobs/:id', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(await importer.getSteamJob(req.user.id, req.params.id));
   });
 
   return router;

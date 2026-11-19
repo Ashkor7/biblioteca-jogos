@@ -8,7 +8,7 @@ import { prisma } from '../db.js';
 import { notFound } from '../lib/errors.js';
 import { parseOrThrow, assertUuid } from '../lib/validate.js';
 import { uploadUrl, publicGameToDto, coverOf } from '../lib/serialize.js';
-import { ACHIEVEMENTS_BY_CODE, levelProgress, ACTIVITY_TYPES } from '../../../shared/progression.js';
+import { ACHIEVEMENTS_BY_CODE, levelProgress, ACTIVITY_TYPES, PRIVATE_ACTIVITY_TYPES } from '../../../shared/progression.js';
 import { usernameField } from '../../../shared/schemas.js';
 import { resolveTitle, pickPrivacy } from './profileService.js';
 import { listFavorites } from './favoriteService.js';
@@ -128,7 +128,8 @@ export async function buildPublicView(profile) {
   }
   if (p.showActivity) {
     const rows = await prisma.playerActivity.findMany({
-      where: { userId },
+      // Importação da Steam não aparece: Steam ID e dados de sincronização são privados.
+      where: { userId, type: { notIn: [...PRIVATE_ACTIVITY_TYPES] } },
       orderBy: { occurredAt: 'desc' },
       take: 15,
       select: { type: true, data: true, retroactive: true, occurredAt: true },
