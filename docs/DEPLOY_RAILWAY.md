@@ -42,6 +42,8 @@ Abra o domínio e crie sua conta em **Criar conta** — ou traga a biblioteca do
 
 ## 4. Levar a biblioteca do seu PC (opcional)
 
+> Use o **PowerShell** (no Prompt de Comando, `$env:` e `Remove-Item` não funcionam e o `&` da URL quebra o comando). Se for mandar print do terminal para alguém, cubra a URL do banco e a senha: a URL contém a senha do banco.
+
 Só funciona com o banco do Railway **vazio** (sem nenhuma conta criada). Você entra no site com o mesmo e-mail e senha de hoje.
 
 1. No PC, com o banco local ligado (`npm run db:embedded`): `npm run db:backup`.

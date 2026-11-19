@@ -41,7 +41,9 @@ const ORDER = [
 const SKIP = new Set(['_prisma_migrations']);
 
 const args = process.argv.slice(2);
-const file = args.find((a) => !a.startsWith('--'));
+// npm roda o script dentro de server/: caminhos relativos valem a partir de onde o comando foi digitado.
+const fileArg = args.find((a) => !a.startsWith('--'));
+const file = fileArg ? path.resolve(process.env.INIT_CWD ?? process.cwd(), fileArg) : null;
 const url = process.env.RESTORE_DATABASE_URL;
 
 function fail(message) {
