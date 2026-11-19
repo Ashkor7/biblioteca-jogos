@@ -11,7 +11,8 @@ services:
     branch: main
     healthCheckPath: /api/health
     # O plano grátis não tem pre-deploy: as migrações rodam antes de iniciar a API.
-    dockerCommand: sh -c "npm run db:deploy && npm start"
+    # Sem aspas nem && aqui: o Render não passa o comando por um shell (o script npm faz isso).
+    dockerCommand: npm run start:render
     envVars:
       - key: DATABASE_URL
         sync: false # URL do Neon (conexão direta, sem "-pooler")

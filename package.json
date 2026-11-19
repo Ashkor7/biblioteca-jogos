@@ -33,7 +33,8 @@
     "db:backup": "npm run db:backup -w server",
     "db:deploy": "npm run db:deploy -w server",
     "db:restore": "npm run db:restore -w server --",
-    "uploads:push": "npm run uploads:push -w server --"
+    "uploads:push": "npm run uploads:push -w server --",
+    "start:render": "npm run db:deploy && npm start"
   },
   "dependencies": {
     "@fontsource/chakra-petch": "^5.2.0",

@@ -117,7 +117,7 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 
 ## Deploy
 
-Principal (grátis): **Render + Neon + Cloudflare R2** (`render.yaml`, `docs/DEPLOY_RENDER.md`). Sem pre-deploy no plano grátis: o `dockerCommand` roda `npm run db:deploy` antes do `npm start`. Imagens com `STORAGE_DRIVER=r2` (`lib/storage.js`: backends `local`/`r2`, mesma interface; URLs sempre `/uploads/<key>`, servidas pela API a partir do bucket privado). Alternativa paga: Railway com `Dockerfile` + `railway.json` (pre-deploy `npm run db:deploy`, health `/api/health`, **1 réplica** por causa do job da Steam no processo). Imagens no volume (`UPLOAD_DIR=/data/uploads`). Passo a passo em `docs/DEPLOY_RAILWAY.md`.
+Principal (grátis): **Render + Neon + Cloudflare R2** (`render.yaml`, `docs/DEPLOY_RENDER.md`). Sem pre-deploy no plano grátis: o `dockerCommand` é `npm run start:render` (`db:deploy` + `start`; o Render não usa shell no dockerCommand, então nada de `sh -c` com aspas). Imagens com `STORAGE_DRIVER=r2` (`lib/storage.js`: backends `local`/`r2`, mesma interface; URLs sempre `/uploads/<key>`, servidas pela API a partir do bucket privado). Alternativa paga: Railway com `Dockerfile` + `railway.json` (pre-deploy `npm run db:deploy`, health `/api/health`, **1 réplica** por causa do job da Steam no processo). Imagens no volume (`UPLOAD_DIR=/data/uploads`). Passo a passo em `docs/DEPLOY_RAILWAY.md`.
 
 ## Git
 
