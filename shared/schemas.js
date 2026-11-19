@@ -540,7 +540,7 @@ export const steamImportSchema = z
       )
       .min(1, 'Escolha pelo menos um jogo')
       .max(LIMITS.steamImportMax, `Importe no máximo ${LIMITS.steamImportMax} jogos por vez`),
-    options: steamOptionsSchema.optional().default({}),
+    options: steamOptionsSchema.prefault({}),
   })
   .superRefine((body, ctx) => {
     const seen = new Set();
@@ -557,7 +557,7 @@ export const steamImportSchema = z
 
 export const steamResyncSchema = z.object({
   updatePlaytime: z.boolean({ error: 'Valor inválido' }).optional().default(false),
-  options: steamOptionsSchema.optional().default({}),
+  options: steamOptionsSchema.prefault({}),
 });
 
 export const steamFillSchema = z.object({

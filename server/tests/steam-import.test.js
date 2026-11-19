@@ -145,6 +145,10 @@ describe('importação da Steam', () => {
     await agent.get('/api/profile'); // biblioteca já processada antes da importação
     await importAll(['620', '1145360', '413150', '292030'].map((id) => ({ appId: Number(id), action: 'IMPORT' })));
 
+    // Sem opções: plataforma e loja padrão "Steam" (regressão: o Zod 4 não aplica defaults internos com .default({})).
+    const sample = (await agent.get('/api/games?source=STEAM')).body.items[0];
+    expect(sample).toMatchObject({ platform: { name: 'Steam', slug: 'steam' }, store: { name: 'Steam' } });
+
     const activities = await prisma.playerActivity.findMany({ where: { type: { in: ['GAME_ADDED', 'STEAM_IMPORTED'] } } });
     expect(activities).toHaveLength(1);
     expect(activities[0]).toMatchObject({ type: 'STEAM_IMPORTED', data: { count: 4, linked: 0 } });

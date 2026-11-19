@@ -402,10 +402,21 @@ export async function updateGame(ownerId, id, body) {
   return gameToDto(game);
 }
 
-export async function deleteGame(ownerId, id) {
+/**
+ * Exclui o jogo. Com ignoreSteam (jogo ligado a um app da Steam), o app entra na lista
+ * de ignorados para não voltar numa ressincronização.
+ */
+export async function deleteGame(ownerId, id, { ignoreSteam = false } = {}) {
   const keys = await prisma.$transaction(async (tx) => {
     await beginProgress(tx, ownerId);
     const existing = await findOwnedGame(tx, ownerId, id);
+    if (ignoreSteam && existing.steamAppId) {
+      await tx.steamIgnoredApp.upsert({
+        where: { userId_appId: { userId: ownerId, appId: existing.steamAppId } },
+        create: { userId: ownerId, appId: existing.steamAppId, title: existing.title },
+        update: {},
+      });
+    }
     // Favoritos, itens de coleção, sessões e histórico de preços saem junto (ON DELETE CASCADE);
     // atividades antigas ficam, com o título guardado, mas sem link para o jogo.
     await tx.game.delete({ where: { id } });

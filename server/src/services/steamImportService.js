@@ -8,10 +8,13 @@ import { prisma } from '../db.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { parseOrThrow, assertUuid } from '../lib/validate.js';
 import { normalizeKey } from '../../../shared/domain.js';
-import { steamImportSchema, steamPreviewSchema } from '../../../shared/schemas.js';
+import { steamImportSchema, steamPreviewSchema, steamResyncSchema, steamFillSchema } from '../../../shared/schemas.js';
 import { STEAM_PREVIEW_STATUS as S, nonGameType, steamStoreUrl } from '../../../shared/steam.js';
-import { callSteam, ensureSteamEnabled, requireLinkedAccount } from './steamAccountService.js';
-import { cachedTypes } from './steamAppData.js';
+import { callSteam, ensureSteamEnabled, getLinkedAccount, requireLinkedAccount } from './steamAccountService.js';
+import { cachedTypes, getAppData } from './steamAppData.js';
+import { applySteamData, collectSteamImages, discardImages } from './steamEnrichService.js';
+import { findOwnedGame } from './gameService.js';
+import { gameInclude, gameToDto } from '../lib/serialize.js';
 import { enqueueSteamJob } from './steamJobRunner.js';
 import { findOrCreatePlatform, findOrCreateStore } from './lookupService.js';
 import { recordActivity } from './activityService.js';
@@ -140,6 +143,7 @@ function newGameRow(userId, app, platformId, storeId, now) {
  */
 export async function createSteamGames(tx, userId, apps, options) {
   if (!apps.length) return [];
+  if (!normalizeKey(options.platform) || !normalizeKey(options.store)) throw new Error('Plataforma e loja da importação são obrigatórias');
   const platform = await findOrCreatePlatform(tx, options.platform);
   const store = await findOrCreateStore(tx, options.store);
   const now = new Date();
@@ -291,4 +295,135 @@ export async function getSteamJob(userId, id) {
   const job = await prisma.steamSyncJob.findFirst({ where: { id, userId } });
   if (!job) throw notFound('Importação');
   return jobToDto(job);
+}
+
+// ---------------------------------------------------------------------------
+// Ressincronizar: só cria o que falta; nunca sobrescreve campos dos jogos existentes.
+// Com updatePlaytime, atualiza as leituras da Steam e as horas pela regra do máximo
+// (nunca diminui, nunca mexe no diário, nunca muda o estado).
+// ---------------------------------------------------------------------------
+
+export async function resyncSteam(userId, body) {
+  ensureSteamEnabled();
+  const { updatePlaytime, options } = parseOrThrow(steamResyncSchema, body ?? {});
+  const account = await requireLinkedAccount(userId);
+  const owned = await readOwnedGames(account, options.includeFreeGames);
+  if (!owned.visible) throw new AppError(409, STEAM_PRIVATE_MESSAGE, { code: 'STEAM_PRIVATE' });
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      await beginProgress(tx, userId);
+      const [index, types] = await Promise.all([libraryIndex(userId), cachedTypes(owned.games.map((g) => g.appId))]);
+      const missing = [];
+      const pendingReview = { duplicates: 0, wishlist: 0 };
+      for (const app of owned.games) {
+        const { status } = classifyApp(app, index, types);
+        if (status === S.NEW) missing.push(app);
+        if (status === S.DUPLICATE) pendingReview.duplicates += 1;
+        if (status === S.WISHLIST) pendingReview.wishlist += 1;
+      }
+      const created = await createSteamGames(tx, userId, missing, options);
+
+      let updated = 0;
+      const achievementItems = [];
+      if (updatePlaytime) {
+        const linked = await tx.game.findMany({
+          where: { ownerId: userId, steamAppId: { in: owned.games.map((g) => g.appId) } },
+          select: { id: true, steamAppId: true, playTimeMinutes: true, legacyPlayMinutes: true, steamPlaytimeMinutes: true, steamLastPlayedAt: true },
+        });
+        const apps = new Map(owned.games.map((g) => [g.appId, g]));
+        const fresh = new Set(created.map((c) => c.id));
+        for (const game of linked) {
+          if (fresh.has(game.id)) continue;
+          const app = apps.get(game.steamAppId);
+          const hours = mergePlaytime(game, app.playtimeMinutes);
+          const changed =
+            hours.playTimeMinutes !== game.playTimeMinutes ||
+            game.steamPlaytimeMinutes !== app.playtimeMinutes ||
+            game.steamLastPlayedAt?.getTime() !== app.lastPlayedAt?.getTime();
+          await tx.game.update({
+            where: { id: game.id },
+            data: {
+              steamPlaytimeMinutes: app.playtimeMinutes,
+              steamLastPlayedAt: app.lastPlayedAt,
+              steamSyncedAt: new Date(),
+              ...hours,
+            },
+          });
+          if (changed) updated += 1;
+          if (options.importAchievements && app.hasStats) achievementItems.push({ id: game.id, appId: app.appId, mode: 'ACHIEVEMENTS' });
+        }
+      }
+      const job = await createSyncJob(tx, userId, 'RESYNC', options, [...created, ...achievementItems], {
+        created: created.length,
+        updated,
+      });
+      if (created.length > 0) {
+        await recordActivity(tx, userId, {
+          type: 'STEAM_IMPORTED',
+          dedupeKey: `steam-import:${job.id}`,
+          entityId: job.id,
+          data: { count: created.length, linked: 0 },
+        });
+      }
+      await tx.steamAccount.update({ where: { userId }, data: { lastSyncAt: new Date() } });
+      await syncProgress(tx, userId, { retroactive: true });
+      return { created: created.length, updated, pendingReview, jobId: job?.id ?? null };
+    },
+    { timeout: 120_000, maxWait: 10_000 },
+  );
+  enqueueSteamJob(result.jobId);
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// "Completar com dados da Steam" num jogo: só campos vazios, ou sobrescrever
+// com overwrite=true (a interface pede confirmação explícita).
+// ---------------------------------------------------------------------------
+
+export async function fillFromSteam(userId, gameId, body) {
+  ensureSteamEnabled();
+  const { overwrite } = parseOrThrow(steamFillSchema, body ?? {});
+  const game = await findOwnedGame(prisma, userId, gameId);
+  if (!game.steamAppId) {
+    throw new AppError(409, 'Este jogo não está vinculado a um app da Steam. Vincule pela tela de importação.', { code: 'STEAM_NOT_LINKED_GAME' });
+  }
+  const data = await getAppData(game.steamAppId);
+  if (!data) throw new AppError(404, 'A loja da Steam não tem página para este jogo');
+  const account = await getLinkedAccount(userId);
+  const achievements = account
+    ? await callSteam((steam) => steam.getPlayerAchievements(account.steamId64, game.steamAppId)).catch(() => null)
+    : null;
+  const images = await collectSteamImages(game, data, { screenshots: 0, overwrite });
+  try {
+    const { dto, filled, unused } = await prisma.$transaction(async (tx) => {
+      await beginProgress(tx, userId);
+      const fresh = await findOwnedGame(tx, userId, gameId);
+      const applied = await applySteamData(tx, fresh, data, { overwrite, genresAsCategories: true, images, achievements });
+      await syncProgress(tx, userId);
+      const reloaded = await tx.game.findUniqueOrThrow({ where: { id: gameId }, include: gameInclude });
+      return { dto: gameToDto(reloaded), ...applied };
+    });
+    await discardImages(unused);
+    return { game: dto, filled };
+  } catch (error) {
+    await discardImages(images);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lista de ignorados
+// ---------------------------------------------------------------------------
+
+export async function listIgnored(userId) {
+  const rows = await prisma.steamIgnoredApp.findMany({ where: { userId }, orderBy: { title: 'asc' } });
+  return { items: rows.map((r) => ({ appId: r.appId, title: r.title, storeUrl: steamStoreUrl(r.appId), createdAt: r.createdAt })) };
+}
+
+export async function unignore(userId, rawAppId) {
+  const appId = Number(rawAppId);
+  if (!Number.isInteger(appId) || appId <= 0 || appId > 2_147_483_647) throw notFound('Jogo ignorado');
+  const { count } = await prisma.steamIgnoredApp.deleteMany({ where: { userId, appId } });
+  if (count === 0) throw notFound('Jogo ignorado');
 }

@@ -55,6 +55,16 @@ export function steamRouter() {
   router.post('/import', limited, async (req, res) => {
     res.status(201).json(await importer.importSteam(req.user.id, req.body));
   });
+  router.post('/resync', limited, async (req, res) => {
+    res.status(201).json(await importer.resyncSteam(req.user.id, req.body));
+  });
+  router.get('/ignored', async (req, res) => {
+    res.json(await importer.listIgnored(req.user.id));
+  });
+  router.delete('/ignored/:appid', async (req, res) => {
+    await importer.unignore(req.user.id, req.params.appid);
+    res.status(204).end();
+  });
   router.get('/jobs/:id', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json(await importer.getSteamJob(req.user.id, req.params.id));
