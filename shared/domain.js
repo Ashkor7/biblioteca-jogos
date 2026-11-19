@@ -62,6 +62,20 @@ export const LIMITS = Object.freeze({
   priceNoteMax: 200,
   goalNameMax: 80,
   favoritesOnProfileHeader: 6,
+  // Metadados (Steam ou digitados)
+  descriptionMax: 1000,
+  companyMax: 120,
+  releaseDateTextMax: 60,
+  websiteMax: 300,
+  // Importação da Steam
+  steamScreenshotsMax: 10,
+  steamImportMax: 5000,
+  steamPersonaMax: 100,
+});
+
+export const GAME_SOURCE_LABELS = Object.freeze({
+  MANUAL: 'Manual',
+  STEAM: 'Steam',
 });
 
 /** Usernames reservados (rotas e termos que confundiriam visitantes). */

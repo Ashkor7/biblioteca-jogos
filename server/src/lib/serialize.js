@@ -1,4 +1,5 @@
 import { PUBLIC_UPLOAD_PREFIX } from './storage.js';
+import { steamStoreUrl } from '../../../shared/steam.js';
 
 export const gameInclude = {
   platform: { select: { id: true, name: true, slug: true } },
@@ -67,6 +68,24 @@ export function gameToDto(game) {
     isFavorite: Boolean(favorite),
     favoriteShownOnProfile: favorite?.showOnProfile ?? false,
     needsReview: game.needsReview,
+    source: game.source,
+    description: game.description,
+    developer: game.developer,
+    publisher: game.publisher,
+    releaseDate: isoDate(game.releaseDate),
+    releaseDateText: game.releaseDateText,
+    metacriticScore: game.metacriticScore,
+    steam: game.steamAppId
+      ? {
+          appId: game.steamAppId,
+          storeUrl: steamStoreUrl(game.steamAppId),
+          playtimeMinutes: game.steamPlaytimeMinutes,
+          lastPlayedAt: game.steamLastPlayedAt,
+          syncedAt: game.steamSyncedAt,
+          achievementsUnlocked: game.steamAchievementsUnlocked,
+          achievementsTotal: game.steamAchievementsTotal,
+        }
+      : null,
     categories: game.categories
       .map((gc) => gc.category)
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
