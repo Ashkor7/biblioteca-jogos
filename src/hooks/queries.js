@@ -25,6 +25,9 @@ export const keys = {
   notifications: ['notifications'],
   prices: (id) => ['prices', id],
   preview: ['profile-preview'],
+  steam: ['steam'],
+  steamIgnored: ['steam', 'ignored'],
+  steamJob: (id) => ['steam-job', id],
 };
 
 // Chaves de páginas públicas: não dependem da sessão e não são invalidadas por mutações.
@@ -80,6 +83,17 @@ export const usePriceHistory = (id, options = {}) =>
   useQuery({ queryKey: keys.prices(id), queryFn: () => api.priceHistory(id), enabled: Boolean(id), ...options });
 export const useNotifications = (options = {}) =>
   useQuery({ queryKey: keys.notifications, queryFn: api.notifications, staleTime: 0, ...options });
+
+export const useSteamStatus = (options = {}) => useQuery({ queryKey: keys.steam, queryFn: api.steamStatus, ...options });
+export const useSteamIgnored = (options = {}) => useQuery({ queryKey: keys.steamIgnored, queryFn: api.steamIgnored, ...options });
+/** Progresso real do job: consulta a cada 1,5 s até terminar. */
+export const useSteamJob = (id) =>
+  useQuery({
+    queryKey: keys.steamJob(id),
+    queryFn: () => api.steamJob(id),
+    enabled: Boolean(id),
+    refetchInterval: (q) => (['PENDING', 'RUNNING'].includes(q.state.data?.status ?? 'PENDING') ? 1500 : false),
+  });
 
 export const usePublicProfile = (username) =>
   useQuery({ queryKey: [PUBLIC_PREFIX, 'profile', username], queryFn: () => api.publicProfile(username), enabled: Boolean(username) });

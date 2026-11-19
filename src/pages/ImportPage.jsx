@@ -1,10 +1,48 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { FaSteam } from 'react-icons/fa';
 import { FiUpload, FiDatabase } from 'react-icons/fi';
 import { api } from '../services/api.js';
 import { useLibraryMutation } from '../hooks/queries.js';
 import { useToast } from '../hooks/useToast.js';
 import PageHeader from '../components/PageHeader.jsx';
+import SteamImportPanel from '../components/SteamImportPanel.jsx';
+
+const TABS = [
+  { value: 'steam', label: 'Steam' },
+  { value: 'antiga', label: 'Versão antiga' },
+];
+
+export default function ImportPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('origem') === 'antiga' ? 'antiga' : 'steam';
+  return (
+    <div className="page-enter max-w-5xl">
+      <PageHeader title="Importar">
+        Traga jogos da sua conta Steam ou os registros da primeira versão do app. Repetir uma importação não cria duplicatas.
+      </PageHeader>
+      <fieldset className="mb-6 max-w-md">
+        <legend className="sr-only">Origem da importação</legend>
+        <div className="segmented">
+          {TABS.map((t) => (
+            <label key={t.value}>
+              <input
+                type="radio"
+                name="origem"
+                value={t.value}
+                checked={tab === t.value}
+                onChange={() => setParams(t.value === 'steam' ? {} : { origem: t.value }, { replace: true })}
+              />
+              {t.value === 'steam' && <FaSteam aria-hidden="true" className="mr-1.5" />}
+              {t.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {tab === 'steam' ? <SteamImportPanel /> : <LegacyImport />}
+    </div>
+  );
+}
 
 /** Lê (somente leitura, uma vez) o que a versão antiga deixou no navegador. */
 function readOldBrowserData() {
@@ -16,7 +54,7 @@ function readOldBrowserData() {
   }
 }
 
-export default function ImportPage() {
+function LegacyImport() {
   const toast = useToast();
   const [found] = useState(readOldBrowserData);
   const [fileGames, setFileGames] = useState(null);
@@ -47,11 +85,11 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="page-enter max-w-3xl">
-      <PageHeader title="Importar dados antigos">
+    <div className="max-w-3xl">
+      <p className="mb-5 text-sm text-muted">
         A primeira versão do app guardava os jogos só neste navegador. A importação copia esses registros para o banco de
         dados uma única vez; repetir não cria duplicatas.
-      </PageHeader>
+      </p>
 
       <div className="space-y-5">
         <section className="panel">

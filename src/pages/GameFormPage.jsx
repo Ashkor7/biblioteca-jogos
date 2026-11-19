@@ -337,6 +337,34 @@ function GameForm({ game }) {
           </div>
         </Section>
 
+        <Section title="Sobre o jogo (opcional)" className="lg:col-span-2">
+          <p className="text-sm text-muted">
+            {game?.steam
+              ? 'Preenchidos pela Steam quando estavam vazios. Você pode editar ou apagar; a ressincronização não sobrescreve.'
+              : 'Informações gerais do jogo. Jogos ligados à Steam podem completar estes campos automaticamente.'}
+          </p>
+          <Field label="Descrição" error={errors.description?.message} hint={`Até ${LIMITS.descriptionMax} caracteres.`}>
+            {(a11y) => <textarea {...a11y} {...register('description')} className="input" rows={3} maxLength={LIMITS.descriptionMax} />}
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Desenvolvedora" error={errors.developer?.message}>
+              {(a11y) => <input {...a11y} {...register('developer')} className="input" maxLength={LIMITS.companyMax} autoComplete="off" />}
+            </Field>
+            <Field label="Distribuidora" error={errors.publisher?.message}>
+              {(a11y) => <input {...a11y} {...register('publisher')} className="input" maxLength={LIMITS.companyMax} autoComplete="off" />}
+            </Field>
+            <Field label="Data de lançamento" error={errors.releaseDate?.message} hint="Quando a data é exata.">
+              {(a11y) => <input {...a11y} {...register('releaseDate')} type="date" className="input max-w-52" />}
+            </Field>
+            <Field label="Lançamento (texto)" error={errors.releaseDateText?.message} hint='Quando não há data exata, ex.: "Em breve", "2027".'>
+              {(a11y) => <input {...a11y} {...register('releaseDateText')} className="input" maxLength={LIMITS.releaseDateTextMax} autoComplete="off" />}
+            </Field>
+            <Field label="Nota Metacritic" error={errors.metacriticScore?.message} hint="De 0 a 100.">
+              {(a11y) => <input {...a11y} {...register('metacriticScore')} inputMode="numeric" className="input num max-w-28" autoComplete="off" />}
+            </Field>
+          </div>
+        </Section>
+
         <div className="sticky bottom-0 z-10 -mx-4 flex flex-col-reverse gap-2 border-t border-line bg-void/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:justify-end sm:px-0 lg:col-span-2">
           <Link to={editing ? `/jogos/${game.id}` : '/'} className="btn btn-ghost">
             Cancelar

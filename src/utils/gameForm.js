@@ -24,6 +24,12 @@ export const emptyGameForm = {
   wishPriority: '',
   preferredStore: '',
   wishNotes: '',
+  description: '',
+  developer: '',
+  publisher: '',
+  releaseDate: '',
+  releaseDateText: '',
+  metacriticScore: '',
 };
 
 export function gameToForm(game) {
@@ -47,10 +53,22 @@ export function gameToForm(game) {
     wishPriority: game.wishPriority ?? '',
     preferredStore: game.preferredStore?.name ?? '',
     wishNotes: game.wishNotes ?? '',
+    description: game.description ?? '',
+    developer: game.developer ?? '',
+    publisher: game.publisher ?? '',
+    releaseDate: game.releaseDate ?? '',
+    releaseDateText: game.releaseDateText ?? '',
+    metacriticScore: game.metacriticScore ?? '',
   };
 }
 
 const blankToNull = (v) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
+/** "86" → 86; vazio → null; texto inválido segue como NaN para o Zod recusar. */
+function metacritic(value) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  return Number(String(value).trim());
+}
 
 /** Valores do formulário → payload da API. */
 export function formToPayload(values) {
@@ -78,6 +96,12 @@ export function formToPayload(values) {
     wishPriority: values.wishPriority || null,
     preferredStore: blankToNull(values.preferredStore),
     wishNotes: blankToNull(values.wishNotes),
+    description: blankToNull(values.description),
+    developer: blankToNull(values.developer),
+    publisher: blankToNull(values.publisher),
+    releaseDate: blankToNull(values.releaseDate),
+    releaseDateText: blankToNull(values.releaseDateText),
+    metacriticScore: metacritic(values.metacriticScore),
   };
 }
 

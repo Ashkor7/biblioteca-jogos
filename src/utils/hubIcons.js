@@ -1,5 +1,6 @@
 // Ícones Feather (react-icons/fi) por conquista e por tipo de atividade.
 import {
+  FiDownloadCloud,
   FiPackage,
   FiLayers,
   FiArchive,
@@ -56,6 +57,7 @@ export const ACTIVITY_ICONS = {
   COLLECTION_CREATED: FiFolderPlus,
   WISHLIST_PURCHASED: FiShoppingCart,
   GOAL_COMPLETED: FiTarget,
+  STEAM_IMPORTED: FiDownloadCloud,
 };
 
 

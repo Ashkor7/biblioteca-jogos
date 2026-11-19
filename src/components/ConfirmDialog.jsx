@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 /** Diálogo modal nativo (foco preso, Esc fecha, leitor de tela anuncia). */
 export default function ConfirmDialog({
@@ -12,6 +12,7 @@ export default function ConfirmDialog({
   onCancel,
 }) {
   const ref = useRef(null);
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -24,14 +25,14 @@ export default function ConfirmDialog({
     <dialog
       ref={ref}
       className="modal"
-      aria-labelledby="confirm-title"
+      aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) onCancel();
       }}
     >
       <div className="p-5 sm:p-6">
-        <h2 id="confirm-title" className="text-xl">
+        <h2 id={titleId} className="text-xl">
           {title}
         </h2>
         <div className="mt-2 text-sm text-muted">{children}</div>

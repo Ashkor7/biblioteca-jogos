@@ -29,6 +29,12 @@ export function describeActivity(activity) {
       return `Comprou ${title}, que estava na lista de desejos`;
     case 'GOAL_COMPLETED':
       return `Concluiu a meta ${quote(d.name)}`;
+    case 'STEAM_IMPORTED': {
+      const count = Number(d.count ?? 0);
+      const linked = Number(d.linked ?? 0);
+      const base = `Importou a biblioteca Steam (${count} ${count === 1 ? 'jogo' : 'jogos'})`;
+      return linked ? `${base} e vinculou ${linked} ${linked === 1 ? 'jogo existente' : 'jogos existentes'}` : base;
+    }
     default:
       return activity.label ?? activity.type;
   }
