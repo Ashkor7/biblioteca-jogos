@@ -35,7 +35,7 @@ export default function GameTile({ game, to, showStatus = false, showHours = fal
   );
 }
 
-export function TileGrid({ children, label, cols = 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6' }) {
+export function TileGrid({ children, label, cols = 'grid-cols-3 @xl:grid-cols-4 @4xl:grid-cols-6' }) {
   return (
     <ul aria-label={label} className={`grid list-none gap-3 p-0 sm:gap-4 ${cols}`}>
       {children}

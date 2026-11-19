@@ -9,7 +9,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiX,
-  FiStar,
+  FiHeart,
   FiFolder,
   FiClock,
   FiTrendingDown,
@@ -160,7 +160,7 @@ function Details({ game }) {
                 </button>
               )}
               <button type="button" className="btn btn-ghost" onClick={() => favorite.mutate()} disabled={favorite.isPending} aria-pressed={game.isFavorite}>
-                <FiStar aria-hidden="true" className={game.isFavorite ? 'pop fill-amber text-amber' : ''} /> {game.isFavorite ? 'Favorito' : 'Favoritar'}
+                <FiHeart aria-hidden="true" className={game.isFavorite ? 'pop fill-violet text-violet' : ''} /> {game.isFavorite ? 'Favorito' : 'Favoritar'}
               </button>
               <button type="button" className="btn btn-ghost" onClick={() => setDialog('collections')}>
                 <FiFolder aria-hidden="true" /> Coleções

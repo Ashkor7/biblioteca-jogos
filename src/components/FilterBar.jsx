@@ -27,24 +27,33 @@ export default function FilterBar({
   sorts = ['featured', 'recent', 'title', 'rating', 'hours', 'paid'],
   label = 'Filtrar jogos',
   priceLabel = 'Preço pago',
+  showSearch = true,
+  className = 'mb-5',
 }) {
   const has = (key) => show.includes(key);
   return (
-    <form role="search" aria-label={label} onSubmit={(e) => e.preventDefault()} className="mb-5 flex flex-wrap gap-2">
-      <div className="relative min-w-0 flex-[3_1_18rem]">
-        <label htmlFor="busca" className="sr-only">
-          Buscar
-        </label>
-        <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" aria-hidden="true" />
-        <input
-          id="busca"
-          type="search"
-          className="input pl-9"
-          placeholder="Buscar por nome, plataforma, loja, categoria ou coleção"
-          value={filters.search ?? ''}
-          onChange={(e) => onChange({ search: e.target.value })}
-        />
-      </div>
+    <form
+      role={showSearch ? 'search' : undefined}
+      aria-label={label}
+      onSubmit={(e) => e.preventDefault()}
+      className={`flex flex-wrap gap-2 ${className}`}
+    >
+      {showSearch && (
+        <div className="relative min-w-0 flex-[3_1_18rem]">
+          <label htmlFor="busca" className="sr-only">
+            Buscar
+          </label>
+          <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" aria-hidden="true" />
+          <input
+            id="busca"
+            type="search"
+            className="input pl-9"
+            placeholder="Buscar por nome, plataforma, loja, categoria ou coleção"
+            value={filters.search ?? ''}
+            onChange={(e) => onChange({ search: e.target.value })}
+          />
+        </div>
+      )}
       {has('platform') && (
         <Select label="Plataforma" value={filters.platform} onChange={(v) => onChange({ platform: v })}>
           <option value="">Todas as plataformas</option>

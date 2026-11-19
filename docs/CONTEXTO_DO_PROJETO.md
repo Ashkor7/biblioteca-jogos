@@ -48,6 +48,21 @@ A especificação original que guiou o trabalho está em `docs/ESPECIFICACAO_BIB
 - [x] Testes: 113 da API + 22 da interface; `npm run check` passando
 - [x] Banco real do dono migrado em 09/11/2026 após backup (`backups/biblioteca-2026-11-09T23-33-45.json`), conferido com `verify-migration.js`
 
+### 3.1 — Redesign cyberpunk (branch `feature/redesign-cyberpunk`, 12/11/2026)
+
+Segue a referência "Painel de jogos cyberpunk Nexus Play" (pasta `biblioteca foto` do dono; cópia em `docs/`). A pedido do dono, a interface ficou **igual** à imagem e adotou a marca **Nexus Play** (logo de controle, nome em Orbitron, versão 3.1.0). Só interface: nenhuma rota da API, modelo ou migração mudou.
+
+- [x] Moldura neon de tela cheia no desktop (topo, lateral, conteúdo e barra inferior dentro dela); o conteúdo rola dentro da moldura
+- [x] Topo: logo Nexus Play, busca global (Ctrl+K; na biblioteca filtra ao vivo, nas outras páginas leva para `/biblioteca?search=`), sino com as atividades recentes reais, botão "Adicionar jogo" e avatar redondo com "Nv." e menu da conta (nível/XP real, perfil, prévia pública, configurações, importar, sair)
+- [x] Lateral com itens grandes, item ativo em ciano/violeta, plataformas dinâmicas (recolhíveis) e o cartão "Jogue mais / Descubra mais / Seja mais" com a versão real; gaveta no celular/tablet
+- [x] Barra inferior no formato da barra de downloads da referência, com dados reais: sincronização da API, progresso de conclusão da coleção, horas registradas e conexão com o servidor
+- [x] Biblioteca: abas pelos estados reais (Todos, Jogando, Zerados, Não iniciados, Abandonados, Favoritos) com contagens, ordenação, grade/lista (`?view=lista`), filtros avançados recolhíveis, skeleton e estados vazios
+- [x] Cartão no formato da referência (capa quase quadrada, coração de favorito, horas, estado com LED e menu ⋮: ver detalhes, editar, excluir com confirmação)
+- [x] Coluna direita (`WithRail`) na biblioteca e na visão geral: estatísticas + anel de conclusão, jogando agora (▶ registra sessão), atividade recente no lugar de "amigos online"; na visão geral também resumo financeiro e lista de desejos
+- [x] Fundo com cidade neon em SVG estático nas laterais e no alto (sem imagem remota, sem animação)
+
+Funções da referência que **não existem** e não foram simuladas: loja, comunidade/amigos online, downloads/atualizações, "instalado", mensagens, "players online", tempo "até o próximo marco" por jogo e controles de janela (minimizar/fechar). O sino mostra atividades reais, não notificações de terceiros. Ficam como ideias de produto.
+
 ## 3. Ambiente do dono (Windows)
 
 - Node.js + npm e Git instalados. **Docker e PostgreSQL não estão instalados**: o banco roda com `npm run db:embedded` (PostgreSQL 18 embutido via npm, dados em `.pgdata/`, porta 5433).

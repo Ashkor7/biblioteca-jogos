@@ -12,7 +12,7 @@ export default function PublicLayout() {
       <header className="border-b border-line bg-void/90 backdrop-blur">
         <div className="mx-auto flex max-w-[72rem] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <p className="font-display font-semibold text-muted">
-            <span className="text-ink">Biblioteca de Jogos</span> · perfil público
+            <span className="brand-name text-sm text-ink">Nexus Play</span> · perfil público
           </p>
           {user && (
             <Link to="/" className="btn btn-ghost btn-sm">
@@ -21,7 +21,7 @@ export default function PublicLayout() {
           )}
         </div>
       </header>
-      <main id="conteudo" tabIndex={-1} className="mx-auto max-w-[72rem] px-4 pb-16 pt-6 outline-none sm:px-6">
+      <main id="conteudo" tabIndex={-1} className="@container mx-auto max-w-[72rem] px-4 pb-16 pt-6 outline-none sm:px-6">
         <Outlet />
       </main>
     </div>

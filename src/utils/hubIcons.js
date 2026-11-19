@@ -18,7 +18,7 @@ import {
   FiTarget,
   FiTrendingUp,
   FiPlusSquare,
-  FiHeart,
+  FiGift,
   FiPlay,
   FiChevronsUp,
   FiFolderPlus,
@@ -46,7 +46,7 @@ export const ACHIEVEMENT_ICONS = {
 
 export const ACTIVITY_ICONS = {
   GAME_ADDED: FiPlusSquare,
-  WISHLIST_ADDED: FiHeart,
+  WISHLIST_ADDED: FiGift,
   GAME_STARTED: FiPlay,
   GAME_COMPLETED: FiFlag,
   SESSION_LOGGED: FiClock,

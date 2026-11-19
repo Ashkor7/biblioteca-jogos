@@ -28,7 +28,14 @@ export default function PlatformPage() {
   if (platform.isError) {
     if (platform.error.status === 404) {
       return (
-        <EmptyState title="Plataforma sem jogos" action={<Link to="/" className="btn btn-ghost">Ir para a visão geral</Link>}>
+        <EmptyState
+          title="Plataforma sem jogos"
+          action={
+            <Link to="/" className="btn btn-ghost">
+              Ir para a visão geral
+            </Link>
+          }
+        >
           Não há jogos em “{slug}”. Plataformas aparecem automaticamente quando você cadastra um jogo nelas.
         </EmptyState>
       );
@@ -96,61 +103,63 @@ function PlatformView({ platform }) {
         </div>
       )}
 
-      <div role="tablist" aria-label="Seções da plataforma" className="mb-5 flex border-b border-line">
-        {[
-          ['colecao', 'Na coleção', platform.ownedCount],
-          ['desejos', 'Lista de desejos', platform.wishlistCount],
-        ].map(([value, label, count]) => {
-          const selected = (filters.aba ?? 'colecao') === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => update({ aba: value, page: '1', status: '', media: '' })}
-              className={`-mb-px flex min-h-11 items-center gap-2 border-b-2 px-4 font-display font-semibold ${
-                selected
-                  ? value === 'desejos'
-                    ? 'border-magenta text-magenta'
-                    : 'border-cyan text-cyan'
-                  : 'border-transparent text-muted hover:text-ink'
-              }`}
-            >
-              {label} <span className="num text-xs">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <div className="frame p-3 sm:p-5">
+        <div role="tablist" aria-label="Seções da plataforma" className="mb-5 flex border-b border-line">
+          {[
+            ['colecao', 'Na coleção', platform.ownedCount],
+            ['desejos', 'Lista de desejos', platform.wishlistCount],
+          ].map(([value, label, count]) => {
+            const selected = (filters.aba ?? 'colecao') === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => update({ aba: value, page: '1', status: '', media: '' })}
+                className={`-mb-px flex min-h-11 items-center gap-2 border-b-2 px-4 font-display font-semibold ${
+                  selected
+                    ? value === 'desejos'
+                      ? 'border-magenta text-magenta'
+                      : 'border-cyan text-cyan'
+                    : 'border-transparent text-muted hover:text-ink'
+                }`}
+              >
+                {label} <span className="num text-xs">{count}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      <div role="tabpanel">
-        <FilterBar
-          filters={filters}
-          onChange={(patch) => update({ ...patch, page: '1' })}
-          categories={categories.data?.items}
-          show={wishlistTab ? ['category', 'sort'] : ['status', 'media', 'category', 'sort']}
-          sorts={wishlistTab ? ['title', 'wishPrice', 'recent'] : undefined}
-          label={`Filtrar jogos de ${platform.name}`}
-        />
-        {games.isPending ? (
-          <LoadingState />
-        ) : games.isError ? (
-          <ErrorState error={games.error} onRetry={games.refetch} />
-        ) : games.data.items.length === 0 ? (
-          <EmptyState title={wishlistTab ? 'Nenhum desejo nesta plataforma' : 'Nenhum jogo encontrado'}>
-            {wishlistTab ? 'Jogos que você quer comprar para esta plataforma aparecem aqui.' : 'Ajuste a busca ou os filtros.'}
-          </EmptyState>
-        ) : (
-          <>
-            <GameGrid games={games.data.items} showPlatform={false} />
-            <Pagination
-              page={games.data.page}
-              totalPages={games.data.totalPages}
-              total={games.data.total}
-              onPage={(page) => update({ page: String(page) })}
-            />
-          </>
-        )}
+        <div role="tabpanel">
+          <FilterBar
+            filters={filters}
+            onChange={(patch) => update({ ...patch, page: '1' })}
+            categories={categories.data?.items}
+            show={wishlistTab ? ['category', 'sort'] : ['status', 'media', 'category', 'sort']}
+            sorts={wishlistTab ? ['title', 'wishPrice', 'recent'] : undefined}
+            label={`Filtrar jogos de ${platform.name}`}
+          />
+          {games.isPending ? (
+            <LoadingState />
+          ) : games.isError ? (
+            <ErrorState error={games.error} onRetry={games.refetch} />
+          ) : games.data.items.length === 0 ? (
+            <EmptyState title={wishlistTab ? 'Nenhum desejo nesta plataforma' : 'Nenhum jogo encontrado'}>
+              {wishlistTab ? 'Jogos que você quer comprar para esta plataforma aparecem aqui.' : 'Ajuste a busca ou os filtros.'}
+            </EmptyState>
+          ) : (
+            <>
+              <GameGrid games={games.data.items} showPlatform={false} />
+              <Pagination
+                page={games.data.page}
+                totalPages={games.data.totalPages}
+                total={games.data.total}
+                onPage={(page) => update({ page: String(page) })}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {renaming && <RenameDialog platform={platform} onClose={() => setRenaming(false)} />}

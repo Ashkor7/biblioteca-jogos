@@ -5,7 +5,7 @@ Leia também `docs/CONTEXTO_DO_PROJETO.md` (estado atual, histórico e pendênci
 
 ## O que é
 
-Biblioteca pessoal de jogos de um único proprietário. Monorepo com workspaces do npm:
+Biblioteca pessoal de jogos de um único proprietário, com a marca **Nexus Play** (escolha do dono em 12/11/2026; logo de controle em `Layout.jsx`, nome em Orbitron). Monorepo com workspaces do npm:
 
 - **Frontend na raiz** (`src/`, `index.html`, `vite.config.js`): React 19, Vite 8, Tailwind CSS 4, React Router 7, TanStack Query 5, React Hook Form, Recharts 3, react-icons (Feather `fi`).
 - **API em `server/`**: Node 20.19+ (o dono usa 24), Express 5, Prisma 6, PostgreSQL, Zod 4, Multer 2, bcryptjs, JWT em cookie, Helmet.
@@ -52,7 +52,9 @@ server/src/lib/         errors (AppError), validate (parseOrThrow/validateGameOr
 server/tests/           testes de aceitação da API (fluxos A–I da especificação)
 src/pages/              Dashboard, Profile, Library, Diary, Collections/Collection, Achievements, Goals, Activities, Settings,
                         ProfilePreview, PublicProfile/PublicCollection (/u/:username), Platform, Wishlist, Statistics, GameForm...
-src/components/         Layout (menu + barra inferior no celular), PublicLayout, ProfileHero, XpBar, AchievementCard, ActivityFeed,
+src/components/         Layout (AppShell: topo com busca global/Ctrl+K e menu da conta, lateral, barra de status real no desktop,
+                        gaveta + barra inferior no celular), ContextRail (WithRail/Widget/ProgressRing: coluna direita),
+                        RailWidgets (widgets só com dados da API), CityBackdrop (skyline SVG estático), PublicLayout, ProfileHero, XpBar, AchievementCard, ActivityFeed,
                         Celebrations, Modal, Toggle, StatTile, GameTile, TrendChart, DataTable, FilterBar, LibraryBrowser...
 src/hooks/queries.js    hooks do TanStack Query + useLibraryMutation (invalida tudo após alterações)
 src/services/api.js     cliente HTTP (fetch, mesma origem, erros como ApiError com fields)
@@ -86,8 +88,10 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 
 ## Interface e estilo
 
-- Visual "Player Hub" (HUD de perfil RPG, cyberpunk): fundo azul-noite, **ciano**/azul para ação, **violeta** para progressão e XP, **âmbar** para conquistas/destaque, **magenta** só para lista de desejos. Classes: `.panel-accent`, `.panel-gold`, `.hud-label`, `.section-title` (via `SectionTitle`), `.xp-track`, `.switch`, `.rarity-*`. Tokens em `src/styles/index.css` (`bg-panel`, `text-muted`, `border-line`, `text-cyan`...). Fontes: Chakra Petch (títulos), IBM Plex Sans (texto), IBM Plex Mono (números, classe `.num`).
-- Assinatura visual: cantos chanfrados (`.panel` + `.panel-body`, `.btn`). Evite excesso de neon/brilho, rótulos em CAIXA ALTA e animações em todo lugar.
+- Visual "Nexus Play" (3.1): o dono pediu o layout **igual** à imagem de referência "Painel de jogos cyberpunk" (pasta `biblioteca foto` dele). Moldura neon de tela cheia no desktop (`.app-frame`), regiões em `.hud-panel`/`.frame`, painéis laterais `.panel-neon` (borda magenta/violeta), cantos **arredondados**, títulos de painel em **caixa alta** ciano (`.panel-heading`, `.widget-title`, `.section-title`). Cores: **ciano**/azul para ação, **violeta** para progressão/XP e favorito (coração), **âmbar** para conquistas/destaque, **magenta** para lista de desejos (ícone de presente). Fontes: Orbitron (só a marca, `.brand-name`), Chakra Petch (títulos e números `.num`), IBM Plex Sans (texto).
+- Brilho com moderação: sombras neon só em bordas de painel, item ativo e botões principais; nada piscando; animações respeitam `prefers-reduced-motion`.
+- **Shell (redesign 3.1)**: páginas que precisam de coluna direita usam `<WithRail rail={...}>`; os widgets mostram só dados reais (nada de amigos, downloads, "instalado" ou valores inventados) e somem/abaixam abaixo de `xl`. Grades dentro do conteúdo usam *container queries* (`@xl:`, `@3xl:`…) porque a largura depende da coluna direita; o `@container` está no `main` do `Layout`, no `WithRail` e no `PublicLayout`.
+- **Rolagem no desktop**: a partir de `lg` a página não rola; quem rola é o `<main>` dentro da moldura (o `Layout` volta ao topo ao trocar de rota). `sticky` dentro das páginas é relativo ao `main`. O cartão de jogo usa `overflow: hidden` no `.panel-body` (capa arredondada), por isso o menu ⋮ e o coração ficam fora do painel.
 - **Não use `m-0`**: o preflight do Tailwind já zera margens, e `m-0` anula `space-y-*`.
 - Diálogos usam `<dialog>` nativo com a classe `.modal` (que tem `margin: auto`).
 - Acessibilidade: rótulos ligados a campos (`Field` em `components/Field.jsx`), foco visível, `prefers-reduced-motion`, sem rolagem horizontal em 360 px.
