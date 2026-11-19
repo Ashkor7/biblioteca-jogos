@@ -21,7 +21,10 @@
     "import:legacy": "node scripts/import-legacy.js",
     "postinstall": "prisma generate",
     "db:embedded": "node scripts/embedded-db.js",
-    "db:backup": "node scripts/backup-db.js"
+    "db:backup": "node scripts/backup-db.js",
+    "db:deploy": "prisma migrate deploy",
+    "db:restore": "node scripts/restore-db.js",
+    "uploads:push": "node scripts/push-uploads.js"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",

@@ -83,6 +83,15 @@ Referência técnica em `docs/PLAYER_HUB.md` §8; guia de uso no README (“Impo
 - [x] Testes: 179 da API + 39 da interface, sem rede; `npm run check` passando; telas conferidas com Playwright (360 px e desktop) num banco de demonstração separado com a Steam falsa
 - [ ] **Teste real com a conta Steam do dono** (precisa da `STEAM_API_KEY` no `.env` e do Steam ID; fazer só com autorização)
 
+### Cadastro público e Railway (branch `feature/cadastro-railway`, 19/11/2026)
+
+- [x] `POST /api/auth/register` e tela `/cadastro` (só com `ALLOW_SIGNUP=true`): senha ≥ 10, limite por IP, mensagem neutra para e-mail repetido, já entra após criar
+- [x] Correção multiusuário: renomear plataforma usada por outra pessoa não muda a dela (move só os seus jogos)
+- [x] `Dockerfile`, `.dockerignore`, `railway.json` (migrações no pre-deploy, health check, 1 réplica) e `docs/DEPLOY_RAILWAY.md`
+- [x] `db:restore` (backup JSON → banco vazio, testado com os 111 jogos do dono: totais idênticos) e `uploads:push` (reenvia imagens pelo upload da API)
+- [ ] Build do Dockerfile não foi testado localmente (não há Docker no PC); o primeiro deploy no Railway é o teste
+- [ ] Sem confirmação de e-mail nem recuperação de senha (precisam de serviço de e-mail)
+
 ## 3. Ambiente do dono (Windows)
 
 - Node.js + npm e Git instalados. **Docker e PostgreSQL não estão instalados**: o banco roda com `npm run db:embedded` (PostgreSQL 18 embutido via npm, dados em `.pgdata/`, porta 5433).

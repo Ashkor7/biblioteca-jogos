@@ -19,6 +19,30 @@ export async function verifyCredentials(email, password) {
   return { id: user.id, email: user.email, createdAt: user.createdAt };
 }
 
+/**
+ * Cadastro público. A mensagem para e-mail repetido é a mesma do login para
+ * não ajudar quem tenta descobrir contas (a rota tem limite por IP).
+ */
+export async function registerUser(email, password) {
+  if (PLACEHOLDER_RE.test(password)) {
+    throw new AppError(400, 'Confira os campos destacados', { fields: { password: 'Escolha uma senha sua' } });
+  }
+  const passwordHash = await hashPassword(password);
+  try {
+    return await prisma.user.create({
+      data: { email, passwordHash },
+      select: { id: true, email: true, createdAt: true },
+    });
+  } catch (error) {
+    if (error?.code === 'P2002') {
+      throw new AppError(409, 'Não foi possível criar a conta com esse e-mail. Se ele já é seu, entre pela tela de login.', {
+        code: 'EMAIL_UNAVAILABLE',
+      });
+    }
+    throw error;
+  }
+}
+
 /** Cria o proprietário ou redefine a senha se o e-mail já existir. */
 export async function upsertOwner(email, password) {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('E-mail inválido');

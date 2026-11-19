@@ -62,6 +62,7 @@ export const LIMITS = Object.freeze({
   priceNoteMax: 200,
   goalNameMax: 80,
   favoritesOnProfileHeader: 6,
+  passwordMin: 10,
   // Metadados (Steam ou digitados)
   descriptionMax: 1000,
   companyMax: 120,

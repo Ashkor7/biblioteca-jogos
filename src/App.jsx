@@ -26,6 +26,7 @@ const StatisticsPage = lazy(() => import('./pages/StatisticsPage.jsx'));
 const GameFormPage = lazy(() => import('./pages/GameFormPage.jsx'));
 const GameDetailsPage = lazy(() => import('./pages/GameDetailsPage.jsx'));
 const LoginPage = lazy(() => import('./pages/LoginPage.jsx'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage.jsx'));
 const ImportPage = lazy(() => import('./pages/ImportPage.jsx'));
 const PublicProfilePage = lazy(() => import('./pages/PublicProfilePage.jsx'));
 const PublicCollectionPage = lazy(() => import('./pages/PublicCollectionPage.jsx'));
@@ -69,6 +70,7 @@ export default function App() {
                 <Route path="jogos/:id/editar" element={owner(<GameFormPage />)} />
                 <Route path="importar" element={owner(<ImportPage />)} />
                 <Route path="login" element={page(<LoginPage />)} />
+                <Route path="cadastro" element={page(<RegisterPage />)} />
                 <Route path="*" element={page(<NotFoundPage />)} />
               </Route>
             </Routes>

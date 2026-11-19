@@ -55,6 +55,7 @@ function query(params = {}) {
 export const api = {
   me: () => request('/auth/me'),
   login: (credentials) => request('/auth/login', { method: 'POST', body: credentials }),
+  register: (payload) => request('/auth/register', { method: 'POST', body: payload }),
   logout: () => request('/auth/logout', { method: 'POST' }),
 
   listGames: (params, signal) => request(`/games${query(params)}`, { signal }),

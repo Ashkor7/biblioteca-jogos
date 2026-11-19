@@ -12,11 +12,19 @@ export default function AuthProvider({ children }) {
       user: me.data?.user ?? null,
       // Endereço público do app (PUBLIC_APP_URL). Sem ele não há link compartilhável.
       publicAppUrl: me.data?.publicAppUrl ?? null,
+      // Cadastro público ligado no servidor (ALLOW_SIGNUP).
+      signupEnabled: Boolean(me.data?.signupEnabled),
       isLoading: me.isPending,
       error: me.error,
       refetch: me.refetch,
       async login(credentials) {
         const result = await api.login(credentials);
+        client.setQueryData(['me'], (old) => ({ ...(old ?? {}), user: result.user }));
+        await client.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+        return result.user;
+      },
+      async register(payload) {
+        const result = await api.register(payload);
         client.setQueryData(['me'], (old) => ({ ...(old ?? {}), user: result.user }));
         await client.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
         return result.user;
