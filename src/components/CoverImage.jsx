@@ -1,7 +1,10 @@
 import { useState } from 'react';
 
-/** Capa com proporção fixa 3:4, texto alternativo e fallback quando falta ou falha. */
-export default function CoverImage({ src, title, platform, className = '', sizes }) {
+/**
+ * Capa com proporção fixa (3:4 por padrão), texto alternativo e fallback quando falta ou falha.
+ * `ratio` troca a proporção (a grade da biblioteca usa uma capa mais quadrada, recortada do topo).
+ */
+export default function CoverImage({ src, title, platform, className = '', sizes, ratio = 'aspect-[3/4]' }) {
   const [failed, setFailed] = useState(false);
   const showImage = src && !failed;
   const initials = (title ?? '?')
@@ -13,7 +16,7 @@ export default function CoverImage({ src, title, platform, className = '', sizes
     .toUpperCase();
 
   return (
-    <div className={`relative aspect-[3/4] w-full overflow-hidden bg-panel-3 ${className}`}>
+    <div className={`relative ${ratio} w-full overflow-hidden bg-panel-3 ${className}`}>
       {showImage ? (
         <img
           src={src}
@@ -22,7 +25,7 @@ export default function CoverImage({ src, title, platform, className = '', sizes
           decoding="async"
           sizes={sizes}
           onError={() => setFailed(true)}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover object-top"
         />
       ) : (
         <div

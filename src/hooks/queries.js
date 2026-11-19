@@ -73,8 +73,8 @@ export const useGameCollections = (id) =>
 export const useGoals = (params = {}) =>
   useQuery({ queryKey: keys.goals(params), queryFn: () => api.goals(params), placeholderData: keepPreviousData });
 export const useAchievements = () => useQuery({ queryKey: keys.achievements, queryFn: api.achievements });
-export const useActivities = (params) =>
-  useQuery({ queryKey: keys.activities(params), queryFn: () => api.activities(params), placeholderData: keepPreviousData });
+export const useActivities = (params, options = {}) =>
+  useQuery({ queryKey: keys.activities(params), queryFn: () => api.activities(params), placeholderData: keepPreviousData, ...options });
 export const useXpHistory = () => useQuery({ queryKey: keys.xp, queryFn: api.xpHistory });
 export const usePriceHistory = (id, options = {}) =>
   useQuery({ queryKey: keys.prices(id), queryFn: () => api.priceHistory(id), enabled: Boolean(id), ...options });

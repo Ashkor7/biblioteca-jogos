@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------
-   Biblioteca de Jogos 3.0 — "Player Hub"
-   HUD de perfil de jogador: azul-noite e grafite, ciano/azul elétrico para
-   ação, violeta para progressão e XP, dourado (âmbar) para conquistas e
-   destaque, magenta só para a lista de desejos.
+   Nexus Play — Biblioteca de Jogos (redesign 3.1)
+   Painel de jogos cyberpunk: azul-marinho quase preto, painéis arredondados
+   com borda neon (ciano → violeta → magenta) e brilho difuso controlado.
+   Ciano/azul = ação, violeta = progressão e XP, âmbar = conquistas/destaque,
+   magenta = lista de desejos e bordas dos painéis laterais.
    ------------------------------------------------------------------ */
 
 @theme {
-  --color-void: #060a13;
-  --color-panel: #0b111d;
-  --color-panel-2: #101827;
-  --color-panel-3: #162136;
-  --color-line: #1c2a42;
-  --color-line-strong: #2d4164;
-  --color-ink: #e4ecf7;
-  --color-muted: #8f9fba;
-  --color-faint: #5d6e8b;
+  --color-void: #04060f;
+  --color-panel: #0a0f22;
+  --color-panel-2: #0f1630;
+  --color-panel-3: #161f3f;
+  --color-line: #1e2a52;
+  --color-line-strong: #2e3d72;
+  --color-ink: #e8eefb;
+  --color-muted: #94a3c6;
+  --color-faint: #5f6d94;
   --color-cyan: #39e1ea;
   --color-cyan-soft: #39e1ea1f;
   --color-cyan-ink: #02181b;
@@ -29,10 +30,25 @@
   --color-amber-soft: #ffb5471f;
   --color-magenta: #ff5aa5;
   --color-magenta-soft: #ff5aa51f;
+  --color-neon-pink: #d946ef;
   --color-danger: #ff6b76;
   --color-danger-soft: #ff6b761a;
-  --color-ok: #5ee3a0;
+  --color-ok: #4ade80;
 
+  /* Aliases semânticos (mesmas cores, nomes por papel) */
+  --color-background: #04060f;
+  --color-surface: #0a0f22;
+  --color-surface-elevated: #0f1630;
+  --color-border: #1e2a52;
+  --color-text-primary: #e8eefb;
+  --color-text-muted: #94a3c6;
+  --color-accent-cyan: #39e1ea;
+  --color-accent-violet: #a88bff;
+  --color-success: #4ade80;
+  --color-warning: #ffb547;
+  --color-focus: #39e1ea;
+
+  --font-brand: "Orbitron", "Chakra Petch", "Segoe UI", sans-serif;
   --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
   --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
@@ -50,13 +66,10 @@
     margin: 0;
     min-height: 100dvh;
     background-color: var(--color-void);
-    /* brilho difuso de progressão (violeta) e ação (ciano) + grade técnica muito sutil */
     background-image:
-      radial-gradient(60rem 40rem at 0% -10%, #a88bff14, transparent 60%),
-      radial-gradient(50rem 36rem at 110% 0%, #39e1ea0e, transparent 60%),
-      linear-gradient(to right, #ffffff04 1px, transparent 1px),
-      linear-gradient(to bottom, #ffffff04 1px, transparent 1px);
-    background-size: auto, auto, 32px 32px, 32px 32px;
+      radial-gradient(70rem 40rem at 50% -20%, #3b2a8a2e, transparent 60%),
+      radial-gradient(40rem 50rem at -10% 60%, #d946ef1f, transparent 60%),
+      radial-gradient(40rem 50rem at 110% 60%, #5b95ff1f, transparent 60%);
     background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
@@ -97,7 +110,7 @@
 }
 
 @layer components {
-  /* Cantoneira cortada: assinatura visual de painéis e cartões */
+  /* Utilitários de recorte mantidos por compatibilidade */
   .chamfer {
     clip-path: polygon(0 0, calc(100% - var(--cut, 14px)) 0, 100% var(--cut, 14px), 100% 100%, 0 100%);
   }
@@ -105,29 +118,29 @@
     clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cut, 10px)), calc(100% - var(--cut, 10px)) 100%, 0 100%);
   }
 
-  /* Painel com borda de 1px que respeita o chanfro */
+  /* Painel: borda de 1px (o fundo do .panel) + corpo arredondado. Sem clip-path:
+     menus suspensos e foco não são cortados. */
   .panel {
-    --cut: 16px;
+    --radius: 12px;
     position: relative;
     background: var(--color-line);
     padding: 1px;
-    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+    border-radius: var(--radius);
   }
   .panel > .panel-body {
     background: color-mix(in srgb, var(--color-panel) 94%, transparent);
     height: 100%;
-    clip-path: polygon(0 0, calc(100% - var(--cut) + 0.5px) 0, 100% calc(var(--cut) - 0.5px), 100% 100%, 0 100%);
+    border-radius: calc(var(--radius) - 1px);
   }
 
   .num {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 
   /* Botões */
   .btn {
-    --cut: 9px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -139,10 +152,10 @@
     font-size: 0.95rem;
     letter-spacing: 0.02em;
     border: 0;
+    border-radius: 8px;
     cursor: pointer;
     text-decoration: none;
     transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%);
     white-space: nowrap;
   }
   .btn:disabled {
@@ -150,11 +163,12 @@
     cursor: not-allowed;
   }
   .btn-primary {
-    background: var(--color-cyan);
+    background: linear-gradient(90deg, var(--color-cyan), #5bc8ff);
     color: var(--color-cyan-ink);
+    box-shadow: 0 0 14px #39e1ea40;
   }
   .btn-primary:hover:not(:disabled) {
-    background: #7af0f5;
+    background: linear-gradient(90deg, #7af0f5, #8bd9ff);
   }
   .btn-ghost {
     background: var(--color-panel-2);
@@ -162,7 +176,7 @@
     box-shadow: inset 0 0 0 1px var(--color-line-strong);
   }
   .btn-ghost:hover:not(:disabled) {
-    box-shadow: inset 0 0 0 1px var(--color-cyan);
+    box-shadow: inset 0 0 0 1px var(--color-cyan), 0 0 10px #39e1ea26;
     color: var(--color-cyan);
   }
   .btn-danger {
@@ -178,7 +192,6 @@
     min-height: 2.25rem;
     padding: 0.35rem 0.8rem;
     font-size: 0.85rem;
-    --cut: 7px;
   }
   .btn-icon {
     min-height: 2.5rem;
@@ -212,7 +225,7 @@
     background: var(--color-panel-2);
     color: var(--color-ink);
     border: 1px solid var(--color-line-strong);
-    border-radius: 0;
+    border-radius: 8px;
     outline: none;
     transition: border-color 120ms ease, box-shadow 120ms ease;
   }
@@ -247,6 +260,8 @@
     grid-auto-flow: column;
     grid-auto-columns: 1fr;
     border: 1px solid var(--color-line-strong);
+    border-radius: 8px;
+    overflow: hidden;
   }
   .segmented label {
     position: relative;
@@ -266,7 +281,6 @@
   .segmented label:first-child {
     border-left: 0;
   }
-  /* Em telas estreitas, quatro opções viram uma grade 2×2 */
   @media (max-width: 30rem) {
     .segmented-wrap {
       grid-auto-flow: row;
@@ -305,6 +319,7 @@
     color: var(--color-ink);
     background: var(--color-panel-3);
     border: 1px solid var(--color-line-strong);
+    border-radius: 6px;
   }
 
   /* LED de estado */
@@ -314,7 +329,7 @@
     height: 0.5rem;
     border-radius: 999px;
     background: currentColor;
-    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+    box-shadow: 0 0 6px currentColor;
     flex: none;
   }
 
@@ -340,6 +355,7 @@
     background: var(--color-cyan);
     color: var(--color-cyan-ink);
     font-weight: 600;
+    border-radius: 8px;
   }
   .skip-link:focus {
     top: 0.75rem;
@@ -363,36 +379,46 @@
     width: min(34rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     padding: 0;
-    border: 1px solid var(--color-line-strong);
+    border: 1px solid #39e1ea66;
+    border-radius: 14px;
     background: var(--color-panel);
     color: var(--color-ink);
     overflow: auto;
+    box-shadow: 0 0 30px #a88bff33, 0 20px 50px #000000b0;
   }
   dialog.modal::backdrop {
-    background: #02050acc;
-    backdrop-filter: blur(2px);
+    background: #02040acc;
+    backdrop-filter: blur(3px);
   }
   dialog.modal-wide {
     width: min(48rem, calc(100vw - 2rem));
   }
 
-  /* --- Player Hub ------------------------------------------------- */
+  /* --- Painéis neon --------------------------------------------- */
 
-  /* Painel de destaque: borda em gradiente ciano → violeta */
+  /* Destaque: borda em gradiente ciano → violeta com brilho */
   .panel-accent {
-    background: linear-gradient(135deg, #39e1ea8c, #2d4164 40%, #a88bff8c);
+    background: linear-gradient(135deg, #39e1eacc, #2e3d72 45%, #a88bffcc);
+    box-shadow: 0 0 16px #39e1ea1f;
   }
   .panel-gold {
-    background: linear-gradient(135deg, #ffb547b3, #2d4164 55%, #ffb54766);
+    background: linear-gradient(135deg, #ffb547b3, #2e3d72 55%, #ffb54766);
+    box-shadow: 0 0 16px #ffb5471a;
+  }
+  /* Painel lateral da referência: borda violeta/magenta */
+  .panel-neon {
+    background: linear-gradient(160deg, #d946efcc, #6d4bd8 45%, #a855f7cc);
+    box-shadow: 0 0 18px #d946ef33, inset 0 0 12px #d946ef1a;
   }
   .panel-accent > .panel-body,
-  .panel-gold > .panel-body {
+  .panel-gold > .panel-body,
+  .panel-neon > .panel-body {
     background:
-      linear-gradient(180deg, #ffffff06, transparent 40%),
+      linear-gradient(180deg, #ffffff07, transparent 40%),
       color-mix(in srgb, var(--color-panel) 96%, transparent);
   }
 
-  /* Rótulo de HUD: pequeno, com traço diagonal à esquerda (sem caixa alta) */
+  /* Rótulo de HUD: pequeno, com traço diagonal à esquerda */
   .hud-label {
     display: inline-flex;
     align-items: center;
@@ -401,7 +427,8 @@
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--color-muted);
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   .hud-label::before {
     content: "";
@@ -412,6 +439,7 @@
     opacity: 0.7;
   }
 
+  /* Títulos de seção em caixa alta, como "LIBRARY STATS" da referência */
   .section-title {
     display: flex;
     align-items: baseline;
@@ -420,17 +448,14 @@
     margin-bottom: 0.85rem;
   }
   .section-title > h2 {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--section-accent, var(--color-cyan));
     display: inline-flex;
     align-items: center;
     gap: 0.6rem;
-  }
-  .section-title > h2::before {
-    content: "";
-    width: 0.3rem;
-    height: 1.1rem;
-    background: var(--section-accent, var(--color-cyan));
-    clip-path: polygon(0 0, 100% 18%, 100% 100%, 0 82%);
   }
 
   /* Barra de XP segmentada */
@@ -440,39 +465,56 @@
     background: var(--color-panel-3);
     box-shadow: inset 0 0 0 1px var(--color-line-strong);
     overflow: hidden;
-    clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    border-radius: 999px;
   }
   .xp-fill {
     height: 100%;
-    background: linear-gradient(90deg, #7d5cff, var(--color-violet) 60%, var(--color-blue));
+    background: linear-gradient(90deg, #7d5cff, var(--color-violet) 60%, var(--color-cyan));
     transition: width 600ms cubic-bezier(.2,.8,.2,1);
+    border-radius: 999px;
   }
   .xp-track::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), #060a13aa calc(10% - 2px) 10%);
+    background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), #04060faa calc(10% - 2px) 10%);
     pointer-events: none;
   }
   .progress-track {
     height: 0.4rem;
     background: var(--color-panel-3);
     overflow: hidden;
+    border-radius: 999px;
   }
   .progress-fill {
     height: 100%;
     background: var(--progress-color, var(--color-cyan));
+    border-radius: 999px;
+  }
+  /* Barra de progresso neon (rodapé, "jogando agora") */
+  .neon-progress {
+    height: 0.4rem;
+    background: #ffffff14;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .neon-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-cyan), #5b95ff 55%, var(--color-neon-pink));
+    box-shadow: 0 0 10px #39e1ea80;
   }
 
-  /* Avatar com moldura chanfrada */
+  /* Avatar redondo com anel em gradiente */
   .avatar-frame {
-    --cut: 14%;
     padding: 2px;
-    background: linear-gradient(135deg, var(--color-cyan), var(--color-violet));
-    clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--color-cyan), var(--color-violet), var(--color-neon-pink));
+    box-shadow: 0 0 12px #a88bff4d;
   }
   .avatar-frame > * {
-    clip-path: inherit;
+    border-radius: 999px;
   }
 
   /* Raridade das conquistas (cor + rótulo textual, nunca só cor) */
@@ -500,6 +542,7 @@
     pointer-events: none;
     width: 100%;
     height: 100%;
+    border-radius: 999px;
     background: var(--color-panel-3);
     box-shadow: inset 0 0 0 1px var(--color-line-strong);
     transition: background-color 150ms ease;
@@ -511,6 +554,7 @@
     left: 0.2rem;
     width: 1.05rem;
     height: 1.05rem;
+    border-radius: 999px;
     background: var(--color-muted);
     transition: transform 150ms ease, background-color 150ms ease;
   }
@@ -535,11 +579,373 @@
   }
   .tile-link:hover .tile-cover,
   .tile-link:focus-visible .tile-cover {
-    box-shadow: 0 0 0 1px var(--color-cyan);
+    box-shadow: 0 0 0 1px var(--color-cyan), 0 0 12px #39e1ea40;
   }
   .tile-cover {
+    border-radius: 8px;
+    overflow: hidden;
     box-shadow: 0 0 0 1px var(--color-line);
     transition: box-shadow 120ms ease;
+  }
+
+  /* --- Shell do aplicativo ------------------------------------- */
+
+  /* Moldura externa: o "monitor" da referência, com borda neon e cantos arredondados */
+  .app-frame {
+    position: relative;
+    background: color-mix(in srgb, #050818 88%, transparent);
+  }
+  @media (min-width: 64rem) {
+    .app-frame {
+      border-radius: 22px;
+      border: 1.5px solid transparent;
+      background:
+        linear-gradient(#050818f2, #050818f2) padding-box,
+        linear-gradient(120deg, #39e1ea, #5b95ff 25%, #a88bff 50%, #d946ef 75%, #39e1ea) border-box;
+      box-shadow:
+        0 0 28px #39e1ea33,
+        0 0 60px #d946ef1f,
+        inset 0 0 40px #3b2a8a26;
+    }
+  }
+
+  /* Região do shell (lateral, biblioteca, barra inferior): borda neon fina com brilho */
+  .hud-panel {
+    border-radius: 16px;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#0a0f22e6, #0a0f22e6) padding-box,
+      linear-gradient(160deg, #39e1eab3, #2e3d72 40%, #a88bffb3) border-box;
+    box-shadow: 0 0 18px #39e1ea1a, inset 0 0 24px #39e1ea0a;
+  }
+  .hud-panel-pink {
+    background:
+      linear-gradient(#0a0f22e6, #0a0f22e6) padding-box,
+      linear-gradient(160deg, #d946efcc, #5b3bc4 50%, #a855f7cc) border-box;
+    box-shadow: 0 0 18px #d946ef26, inset 0 0 24px #d946ef0d;
+  }
+
+  .neon-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #39e1ea99 18%, #a88bff99 60%, #d946ef66 85%, transparent);
+  }
+
+  .topbar {
+    background: color-mix(in srgb, #050818 88%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  @media (min-width: 64rem) {
+    .topbar {
+      background: transparent;
+      backdrop-filter: none;
+    }
+  }
+
+  /* Marca */
+  .brand-name {
+    font-family: var(--font-brand);
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+    text-shadow: 0 0 12px #a88bff66;
+  }
+  .brand-tagline {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-cyan);
+  }
+
+  /* Busca global */
+  .search-shell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 10px;
+    border: 1px solid #39e1ea80;
+    background: #0a0f22cc;
+    box-shadow: 0 0 14px #39e1ea26, inset 0 0 10px #39e1ea0d;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .search-shell:focus-within {
+    border-color: var(--color-cyan);
+    box-shadow: 0 0 18px #39e1ea4d;
+  }
+  .search-shell > input {
+    width: 100%;
+    min-height: 2.6rem;
+    padding: 0.4rem 5.2rem 0.4rem 2.6rem;
+    background: transparent;
+    color: var(--color-ink);
+    border: 0;
+    outline: none;
+  }
+  .search-shell > input::placeholder {
+    color: var(--color-muted);
+  }
+  .kbd {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    line-height: 1;
+    padding: 0.32rem 0.5rem;
+    color: var(--color-muted);
+    background: var(--color-panel-3);
+    border-radius: 5px;
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+  }
+
+  /* Botão redondo do topo (sino) */
+  .icon-ring {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.3rem;
+    color: var(--color-ink);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 120ms ease, background-color 120ms ease;
+  }
+  .icon-ring:hover,
+  .icon-ring[aria-expanded="true"] {
+    color: var(--color-cyan);
+    background: #39e1ea14;
+  }
+
+  /* Item de navegação lateral (grande, como na referência) */
+  .nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.95rem;
+    min-height: 2.7rem;
+    padding: 0 1rem;
+    color: var(--color-ink);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  }
+  .nav-item > svg {
+    flex: none;
+    font-size: 1.3rem;
+    color: var(--color-cyan);
+    opacity: 0.85;
+  }
+  .nav-item:hover {
+    background: #39e1ea0f;
+    color: var(--color-cyan);
+  }
+  .nav-item[aria-current="page"] {
+    color: var(--color-ink);
+    border-color: transparent;
+    background:
+      linear-gradient(90deg, #1a2a6ccc, #2a1e6acc) padding-box,
+      linear-gradient(90deg, var(--color-cyan), var(--color-violet)) border-box;
+    box-shadow: 0 0 16px #39e1ea40, inset 0 0 14px #39e1ea1f;
+  }
+  .nav-item[aria-current="page"] > svg {
+    opacity: 1;
+  }
+  .nav-item:focus-visible {
+    outline-offset: 0;
+  }
+
+  /* Abas/chips da biblioteca (botões com aria-pressed), em caixa alta */
+  .chip-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.3rem 0.75rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  }
+  .chip-tab:hover {
+    color: var(--color-cyan);
+  }
+  .chip-tab[aria-pressed="true"] {
+    color: var(--color-cyan);
+    background: #1a2a6c99;
+    border-color: #39e1ea99;
+    box-shadow: 0 0 10px #39e1ea33;
+  }
+  .chip-tab .chip-count {
+    font-family: var(--font-display);
+  }
+
+  /* Cartão de jogo da grade */
+  .game-card {
+    position: relative;
+    min-width: 0;
+  }
+  .game-card > .panel {
+    background: #2e3d72b3;
+    transition: background 150ms ease, box-shadow 150ms ease;
+  }
+  .game-card:hover > .panel,
+  .game-card:focus-within > .panel {
+    background: linear-gradient(160deg, var(--color-cyan), #2e3d72 55%, var(--color-violet));
+    box-shadow: 0 0 16px #39e1ea40;
+  }
+  .game-card.is-featured > .panel {
+    background: linear-gradient(160deg, var(--color-amber), #2e3d72 60%, #ffb54766);
+  }
+  .game-card .panel-body {
+    overflow: hidden;
+  }
+  .game-card .cover-shade {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 35%;
+    background: linear-gradient(180deg, transparent, #04060fb3);
+    pointer-events: none;
+  }
+  .card-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--color-ink);
+    background: #04060f99;
+    border: 1px solid #ffffff1f;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  }
+  .card-icon-btn:hover:not(:disabled) {
+    color: var(--color-cyan);
+    border-color: var(--color-cyan);
+  }
+  .card-icon-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .card-icon-btn.is-on {
+    color: var(--color-violet);
+    border-color: #a88bff99;
+  }
+  /* Coração sobre a capa, sem caixa (como na referência) */
+  .heart-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.15rem;
+    color: #fff;
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    filter: drop-shadow(0 1px 2px #000000e6);
+    transition: color 120ms ease, transform 120ms ease;
+  }
+  .heart-btn:hover:not(:disabled) {
+    color: var(--color-violet);
+    transform: scale(1.08);
+  }
+  .heart-btn.is-on {
+    color: var(--color-violet);
+  }
+  .heart-btn:disabled {
+    cursor: wait;
+  }
+
+  /* Menu suspenso (ações do jogo, conta, atividades) */
+  .menu-pop {
+    position: absolute;
+    z-index: 40;
+    min-width: 11rem;
+    padding: 0.3rem;
+    background: var(--color-panel);
+    border: 1px solid #39e1ea4d;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px #000000a0, 0 0 16px #a88bff26;
+  }
+  .menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 2.5rem;
+    padding: 0 0.7rem;
+    font-size: 0.9rem;
+    color: var(--color-ink);
+    text-decoration: none;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    background: var(--color-panel-3);
+    color: var(--color-cyan);
+    outline: none;
+  }
+  .menu-item.is-danger {
+    color: var(--color-danger);
+  }
+  .menu-item.is-danger:hover,
+  .menu-item.is-danger:focus-visible {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  /* Moldura de região grande (sem recorte) */
+  .frame {
+    position: relative;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#0a0f22e0, #0a0f22e0) padding-box,
+      linear-gradient(160deg, #39e1eaa6, #2e3d72 40%, #a88bff8c) border-box;
+    box-shadow: 0 0 18px #39e1ea14;
+  }
+
+  /* Título de painel em caixa alta e ciano ("GAME LIBRARY", "LIBRARY STATS") */
+  .widget-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-cyan);
+  }
+  .panel-heading {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-cyan);
+    text-shadow: 0 0 14px #39e1ea40;
+  }
+
+  .ring-track {
+    stroke: #ffffff14;
   }
 
   /* Calendário de atividade do diário */
@@ -573,6 +979,7 @@
   animation: unlock-in 320ms cubic-bezier(.2,.8,.2,1) both;
   position: relative;
   overflow: hidden;
+  border-radius: 12px;
 }
 .unlock-card::after {
   content: "";
