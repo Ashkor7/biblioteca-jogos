@@ -121,7 +121,11 @@ export const ACTIVITY_TYPES = Object.freeze({
   COLLECTION_CREATED: 'Coleção criada',
   WISHLIST_PURCHASED: 'Desejo comprado',
   GOAL_COMPLETED: 'Meta concluída',
+  STEAM_IMPORTED: 'Biblioteca Steam importada',
 });
+
+/** Atividades que nunca aparecem no perfil público (revelariam a origem/conta da Steam). */
+export const PRIVATE_ACTIVITY_TYPES = Object.freeze(['STEAM_IMPORTED']);
 
 /** Tipos que viram aviso visual (uma única vez, controlado pelo servidor). */
 export const CELEBRATION_TYPES = Object.freeze(['ACHIEVEMENT_UNLOCKED', 'LEVEL_UP', 'GOAL_COMPLETED']);

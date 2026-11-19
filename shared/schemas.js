@@ -28,6 +28,15 @@ function optionalText(max) {
     .transform((v) => (v && v.trim() ? v.trim() : null));
 }
 
+/** Texto de uma linha (ou parágrafo curto) sem caracteres de controle; vazio vira null. */
+function plainText(max) {
+  return z
+    .string({ error: 'Texto inválido' })
+    .nullish()
+    .transform((v) => (v ? stripControl(v).trim() || null : null))
+    .pipe(z.string().max(max, `Use no máximo ${max} caracteres`).nullable());
+}
+
 /** Data de calendário "AAAA-MM-DD". */
 export function isoDateField(message = 'Data inválida') {
   return z.string({ error: message }).trim().refine(isIsoDate, message);
@@ -186,6 +195,22 @@ export function buildGameSchema() {
         .transform((v) => v ?? null),
       preferredStore: optionalLookupName,
       wishNotes: optionalText(LIMITS.wishNotesMax),
+      // Metadados opcionais (vêm da Steam ou são digitados; valem para qualquer jogo)
+      description: plainText(LIMITS.descriptionMax),
+      developer: plainText(LIMITS.companyMax),
+      publisher: plainText(LIMITS.companyMax),
+      releaseDate: isoDateField('Data de lançamento inválida')
+        .nullish()
+        .or(z.literal(''))
+        .transform((v) => v || null),
+      releaseDateText: plainText(LIMITS.releaseDateTextMax),
+      metacriticScore: z
+        .number({ error: 'Nota Metacritic inválida' })
+        .int('Nota Metacritic inválida')
+        .min(0, 'A nota Metacritic vai de 0 a 100')
+        .max(100, 'A nota Metacritic vai de 0 a 100')
+        .nullish()
+        .transform((v) => v ?? null),
     })
     .transform((game) => {
       if (game.playStatus !== 'COMPLETED') game = { ...game, completedAt: null };
@@ -454,6 +479,108 @@ export const legacyGameSchema = z.object({
   capa: z.string().optional().nullable(),
   avaliacao: z.union([z.string(), z.number()]).optional().nullable(),
   destaque: z.boolean().optional().default(false),
+});
+
+// ---------------------------------------------------------------------------
+// Importação da Steam
+// ---------------------------------------------------------------------------
+
+export const steamAppIdField = z
+  .number({ error: 'App da Steam inválido' })
+  .int('App da Steam inválido')
+  .positive('App da Steam inválido')
+  .max(2_147_483_647, 'App da Steam inválido');
+
+export const steamLookupSchema = z.object({
+  input: z
+    .string({ error: 'Informe o SteamID64, o link do perfil ou o apelido' })
+    .trim()
+    .min(1, 'Informe o SteamID64, o link do perfil ou o apelido')
+    .max(200, 'Texto longo demais para um perfil da Steam'),
+});
+
+export const steamLinkSchema = z.object({
+  steamId64: z
+    .string({ error: 'SteamID64 inválido' })
+    .trim()
+    .regex(/^7656119\d{10}$/, 'SteamID64 inválido (são 17 dígitos começando por 7656119)'),
+});
+
+export const steamOptionsSchema = z.object({
+  platform: lookupName('Informe a plataforma de destino').optional().default('Steam'),
+  store: lookupName('Informe a loja').optional().default('Steam'),
+  includeFreeGames: z.boolean({ error: 'Valor inválido' }).optional().default(false),
+  screenshots: z
+    .number({ error: 'Quantidade de screenshots inválida' })
+    .int('Use um número inteiro')
+    .min(0, 'Use de 0 a 10 screenshots')
+    .max(LIMITS.steamScreenshotsMax, `Use de 0 a ${LIMITS.steamScreenshotsMax} screenshots`)
+    .optional()
+    .default(0),
+  importAchievements: z.boolean({ error: 'Valor inválido' }).optional().default(true),
+  genresAsCategories: z.boolean({ error: 'Valor inválido' }).optional().default(true),
+});
+
+export const steamPreviewSchema = z.object({
+  includeFreeGames: z.boolean({ error: 'Valor inválido' }).optional().default(false),
+});
+
+export const STEAM_IMPORT_ACTIONS = ['IMPORT', 'LINK', 'IGNORE'];
+
+export const steamImportSchema = z
+  .object({
+    items: z
+      .array(
+        z.object({
+          appId: steamAppIdField,
+          action: z.enum(STEAM_IMPORT_ACTIONS, { error: 'Ação inválida' }),
+          gameId: z.uuid('Jogo inválido').optional(),
+        }),
+        { error: 'Escolha os jogos' },
+      )
+      .min(1, 'Escolha pelo menos um jogo')
+      .max(LIMITS.steamImportMax, `Importe no máximo ${LIMITS.steamImportMax} jogos por vez`),
+    options: steamOptionsSchema.prefault({}),
+  })
+  .superRefine((body, ctx) => {
+    const seen = new Set();
+    body.items.forEach((item, index) => {
+      if (seen.has(item.appId)) {
+        ctx.addIssue({ code: 'custom', path: ['items', index, 'appId'], message: 'Jogo repetido na lista' });
+      }
+      seen.add(item.appId);
+      if (item.action === 'LINK' && !item.gameId) {
+        ctx.addIssue({ code: 'custom', path: ['items', index, 'gameId'], message: 'Escolha o jogo da biblioteca para vincular' });
+      }
+    });
+  });
+
+export const steamResyncSchema = z.object({
+  updatePlaytime: z.boolean({ error: 'Valor inválido' }).optional().default(false),
+  options: steamOptionsSchema.prefault({}),
+});
+
+export const steamFillSchema = z.object({
+  overwrite: z.boolean({ error: 'Valor inválido' }).optional().default(false),
+});
+
+const steamHttpsUrl = z.url().max(2048).refine((v) => v.startsWith('https://'), 'Use https');
+
+/** Formato normalizado de appdetails (o que fica no cache). Tudo já limpo e cortado. */
+export const steamAppDetailsSchema = z.object({
+  appId: steamAppIdField,
+  type: z.string().max(30).nullable(),
+  name: z.string().max(LIMITS.titleMax).nullable(),
+  description: z.string().max(LIMITS.descriptionMax).nullable(),
+  headerImage: steamHttpsUrl.nullable(),
+  screenshots: z.array(steamHttpsUrl).max(20),
+  genres: z.array(z.string().min(1).max(LIMITS.categoryMax)).max(LIMITS.categoriesPerGame),
+  developer: z.string().max(LIMITS.companyMax).nullable(),
+  publisher: z.string().max(LIMITS.companyMax).nullable(),
+  releaseDate: z.string().refine(isIsoDate).nullable(),
+  releaseDateText: z.string().max(LIMITS.releaseDateTextMax).nullable(),
+  metacriticScore: z.number().int().min(0).max(100).nullable(),
+  website: steamHttpsUrl.max(LIMITS.websiteMax).nullable(),
 });
 
 /** Converte erros do Zod em { "campo": "mensagem" } para a UI. */

@@ -1,5 +1,5 @@
 import { FiSearch } from 'react-icons/fi';
-import { PLAY_STATUS_LABELS, MEDIA_LABELS, WISH_PRIORITY_LABELS } from '../../shared/domain.js';
+import { PLAY_STATUS_LABELS, MEDIA_LABELS, WISH_PRIORITY_LABELS, GAME_SOURCE_LABELS } from '../../shared/domain.js';
 
 const SORT_LABELS = {
   featured: 'Destaque primeiro',
@@ -132,6 +132,23 @@ export default function FilterBar({
               {n === 5 ? '5 estrelas' : `${n}+ estrelas`}
             </option>
           ))}
+        </Select>
+      )}
+      {has('source') && (
+        <Select label="Origem" value={filters.source} onChange={(v) => onChange({ source: v })}>
+          <option value="">Manual e Steam</option>
+          {Object.entries(GAME_SOURCE_LABELS).map(([value, text]) => (
+            <option key={value} value={value}>
+              {value === 'MANUAL' ? 'Só manuais' : `Só da ${text}`}
+            </option>
+          ))}
+        </Select>
+      )}
+      {has('review') && (
+        <Select label="Revisão" value={filters.needsReview} onChange={(v) => onChange({ needsReview: v })}>
+          <option value="">Revisados ou não</option>
+          <option value="true">Precisam de revisão</option>
+          <option value="false">Já revisados</option>
         </Select>
       )}
       {has('favorite') && (

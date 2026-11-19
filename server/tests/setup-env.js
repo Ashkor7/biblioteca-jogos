@@ -12,3 +12,7 @@ process.env.LOGIN_RATE_LIMIT = '1000';
 process.env.PUBLIC_READ = 'false';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 process.env.MAX_UPLOAD_MB = '1';
+process.env.STEAM_API_KEY = '0123456789ABCDEF0123456789ABCDEF';
+process.env.STEAM_RATE_LIMIT = '1000';
+process.env.STEAM_STORE_INTERVAL_MS = '0';
+process.env.STEAM_API_INTERVAL_MS = '0';

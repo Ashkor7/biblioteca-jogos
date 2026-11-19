@@ -11,6 +11,7 @@ import Toggle from '../components/Toggle.jsx';
 import { Field } from '../components/Field.jsx';
 import { LoadingState, ErrorState } from '../components/States.jsx';
 import { LIMITS } from '../../shared/domain.js';
+import SteamAccountSection from '../components/SteamAccountSection.jsx';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/avif';
 
@@ -44,11 +45,12 @@ export default function SettingsPage() {
   if (profile.isError) return <ErrorState error={profile.error} onRetry={profile.refetch} />;
   return (
     <div className="page-enter space-y-10">
-      <PageHeader title="Configurações">Perfil do jogador, privacidade e compartilhamento.</PageHeader>
+      <PageHeader title="Configurações">Perfil do jogador, privacidade, compartilhamento e conta Steam.</PageHeader>
       <ProfileForm key={profile.data.username} profile={profile.data} />
       <ImagesSection profile={profile.data} />
       <PrivacySection profile={profile.data} />
       <ShareSection profile={profile.data} />
+      <SteamAccountSection />
       <MaintenanceSection />
     </div>
   );

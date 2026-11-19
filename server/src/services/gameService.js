@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '../db.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { parseOrThrow, assertUuid, validateGameOrThrow } from '../lib/validate.js';
-import { gameInclude, gameToDto, money } from '../lib/serialize.js';
+import { gameInclude, gameToDto, money, isoDate } from '../lib/serialize.js';
 import { saveImageBuffer, removeStoredFiles } from '../lib/storage.js';
 import { markPurchasedSchema, moneyField, PLAY_STATUS_VALUES, PRIORITY_VALUES } from '../../../shared/schemas.js';
 import { minutesToHours } from '../../../shared/domain.js';
@@ -28,6 +28,7 @@ const listQuerySchema = z.object({
   categoryId: z.uuid('Categoria inválida').optional(),
   storeId: z.uuid('Loja inválida').optional(),
   needsReview: flag,
+  source: z.enum(['MANUAL', 'STEAM'], { error: 'Origem inválida' }).optional(),
   minRating: z.coerce.number().int().min(1).max(5).optional(),
   // Faixa de preço: preço pago (adquiridos) ou último preço informado (desejos)
   minPrice: moneyField,
@@ -68,6 +69,7 @@ export async function listGames(viewerId, rawQuery) {
   if (q.storeId) where.storeId = q.storeId;
   if (q.categoryId) where.categories = { some: { categoryId: q.categoryId } };
   if (q.needsReview) where.needsReview = q.needsReview === 'true';
+  if (q.source) where.source = q.source;
   if (q.minRating) where.ratingStars = { gte: q.minRating };
   if (q.favorite === 'true') where.favorites = { some: {} };
   if (q.favorite === 'false') where.favorites = { none: {} };
@@ -89,6 +91,8 @@ export async function listGames(viewerId, rawQuery) {
     and.push({
       OR: [
         { title: contains },
+        { developer: contains },
+        { publisher: contains },
         { platform: { name: contains } },
         { store: { name: contains } },
         { categories: { some: { category: { name: contains } } } },
@@ -150,6 +154,12 @@ function toInput(game) {
     wishPriority: game.wishPriority,
     preferredStore: game.preferredStore?.name ?? null,
     wishNotes: game.wishNotes,
+    description: game.description,
+    developer: game.developer,
+    publisher: game.publisher,
+    releaseDate: isoDate(game.releaseDate),
+    releaseDateText: game.releaseDateText,
+    metacriticScore: game.metacriticScore,
   };
 }
 
@@ -174,6 +184,12 @@ const EDITABLE_KEYS = [
   'wishPriority',
   'preferredStore',
   'wishNotes',
+  'description',
+  'developer',
+  'publisher',
+  'releaseDate',
+  'releaseDateText',
+  'metacriticScore',
 ];
 
 function pickEditable(body) {
@@ -182,6 +198,18 @@ function pickEditable(body) {
     if (body && Object.prototype.hasOwnProperty.call(body, key)) out[key] = body[key];
   }
   return out;
+}
+
+/** Metadados opcionais (descrição, empresas, lançamento, Metacritic) no formato do banco. */
+export function metadataData(data) {
+  return {
+    description: data.description,
+    developer: data.developer,
+    publisher: data.publisher,
+    releaseDate: data.releaseDate ? new Date(`${data.releaseDate}T00:00:00.000Z`) : null,
+    releaseDateText: data.releaseDateText,
+    metacriticScore: data.metacriticScore,
+  };
 }
 
 function isPurchaseComplete(data) {
@@ -246,6 +274,7 @@ export async function createGame(ownerId, payload, coverFile) {
           wishPriority: data.wishPriority,
           preferredStoreId: preferredStore?.id ?? null,
           wishNotes: data.wishNotes,
+          ...metadataData(data),
           categories: { create: categories.map((c) => ({ categoryId: c.id })) },
           ...(image ? { images: { create: [image] } } : {}),
         },
@@ -357,6 +386,7 @@ export async function updateGame(ownerId, id, body) {
         wishPriority: data.wishPriority,
         preferredStoreId: preferredStore?.id ?? null,
         wishNotes: data.wishNotes,
+        ...metadataData(data),
         needsReview: existing.needsReview && !isPurchaseComplete(data),
         categories: { create: categories.map((c) => ({ categoryId: c.id })) },
       },
@@ -372,10 +402,21 @@ export async function updateGame(ownerId, id, body) {
   return gameToDto(game);
 }
 
-export async function deleteGame(ownerId, id) {
+/**
+ * Exclui o jogo. Com ignoreSteam (jogo ligado a um app da Steam), o app entra na lista
+ * de ignorados para não voltar numa ressincronização.
+ */
+export async function deleteGame(ownerId, id, { ignoreSteam = false } = {}) {
   const keys = await prisma.$transaction(async (tx) => {
     await beginProgress(tx, ownerId);
     const existing = await findOwnedGame(tx, ownerId, id);
+    if (ignoreSteam && existing.steamAppId) {
+      await tx.steamIgnoredApp.upsert({
+        where: { userId_appId: { userId: ownerId, appId: existing.steamAppId } },
+        create: { userId: ownerId, appId: existing.steamAppId, title: existing.title },
+        update: {},
+      });
+    }
     // Favoritos, itens de coleção, sessões e histórico de preços saem junto (ON DELETE CASCADE);
     // atividades antigas ficam, com o título guardado, mas sem link para o jogo.
     await tx.game.delete({ where: { id } });

@@ -67,7 +67,8 @@ export const api = {
     return request('/games', { method: 'POST', formData });
   },
   updateGame: (id, payload) => request(`/games/${id}`, { method: 'PATCH', body: payload }),
-  deleteGame: (id) => request(`/games/${id}`, { method: 'DELETE' }),
+  deleteGame: (id, { ignoreSteam } = {}) =>
+    request(`/games/${id}${query({ ignoreSteam: ignoreSteam === undefined ? undefined : String(ignoreSteam) })}`, { method: 'DELETE' }),
   setFeatured: (id, isFeatured) => request(`/games/${id}/featured`, { method: 'PATCH', body: { isFeatured } }),
   markPurchased: (id, payload) => request(`/games/${id}/mark-purchased`, { method: 'PATCH', body: payload }),
 
@@ -148,6 +149,19 @@ export const api = {
   priceHistory: (gameId) => request(`/games/${gameId}/prices`),
   addPrice: (gameId, payload) => request(`/games/${gameId}/prices`, { method: 'POST', body: payload }),
   deletePrice: (gameId, entryId) => request(`/games/${gameId}/prices/${entryId}`, { method: 'DELETE' }),
+
+  // Steam (a chave fica só no servidor)
+  steamStatus: () => request('/steam/account'),
+  steamLookup: (input) => request('/steam/account/lookup', { method: 'POST', body: { input } }),
+  steamLink: (steamId64) => request('/steam/account', { method: 'PUT', body: { steamId64 } }),
+  steamUnlink: (keepAppIds) => request(`/steam/account${query({ keepAppIds: String(keepAppIds) })}`, { method: 'DELETE' }),
+  steamPreview: (payload) => request('/steam/preview', { method: 'POST', body: payload }),
+  steamImport: (payload) => request('/steam/import', { method: 'POST', body: payload }),
+  steamResync: (payload) => request('/steam/resync', { method: 'POST', body: payload }),
+  steamJob: (id) => request(`/steam/jobs/${id}`),
+  steamIgnored: () => request('/steam/ignored'),
+  steamUnignore: (appId) => request(`/steam/ignored/${appId}`, { method: 'DELETE' }),
+  steamFill: (gameId, overwrite = false) => request(`/games/${gameId}/steam-fill`, { method: 'POST', body: { overwrite } }),
 
   publicProfile: (username) => request(`/public/profiles/${encodeURIComponent(username)}`),
   publicGames: (username, kind, page) =>

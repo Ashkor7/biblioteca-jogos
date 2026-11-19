@@ -27,6 +27,7 @@ Biblioteca pessoal de jogos e **perfil de jogador** com persistência real no se
 - **Lista de desejos avançada**: preço-alvo, prioridade, loja preferida, notas e histórico manual de preços com gráfico.
 - **Dashboard financeiro 2.0**: gastos e economia por mês/ano, acumulado, lojas, plataformas e maiores economias.
 - **Perfil público opcional** em `/u/:usuário`, somente leitura, com cada seção liberada por você (tudo privado por padrão).
+- **Importação da Steam** (opcional): vincule sua conta e importe a biblioteca com horas, último acesso, conquistas, descrição, gêneros, empresas, lançamento, Metacritic, capa e screenshots. Os jogos importados são jogos comuns (editáveis e excluíveis). Veja [Importação da Steam](#importação-da-steam).
 
 ---
 
@@ -44,7 +45,8 @@ Biblioteca pessoal de jogos e **perfil de jogador** com persistência real no se
 10. [Segurança](#segurança)
 11. [Produção](#produção)
 12. [Atualizar da 2.x para a 3.0](#atualizar-da-2x-para-a-30)
-13. [Decisões de arquitetura](#decisões-de-arquitetura)
+13. [Importação da Steam](#importação-da-steam)
+14. [Decisões de arquitetura](#decisões-de-arquitetura)
 
 ## Tecnologias
 
@@ -179,6 +181,11 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 | `MAX_IMAGES_PER_GAME` | `20` | Limite da galeria |
 | `LEGACY_IMPORT_MAX_MB` | `30` | Limite do JSON de importação |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Usados por `npm run admin:create` |
+| `STEAM_API_KEY` | — | Chave da Web API da Steam (32 caracteres hexadecimais). Sem ela, a importação aparece desativada e as rotas `/api/steam` respondem 503. Nunca sai do servidor |
+| `STEAM_CACHE_DAYS` | `30` | Validade do cache de dados da loja (compartilhado entre usuários) |
+| `STEAM_STORE_INTERVAL_MS` / `STEAM_API_INTERVAL_MS` | `1500` / `250` | Intervalo mínimo entre chamadas à loja e à Web API |
+| `STEAM_TIMEOUT_MS` | `10000` | Tempo máximo de cada chamada (e de cada download de imagem) |
+| `STEAM_RATE_LIMIT` | `30` | Requisições por minuto, por usuário, nas rotas que consultam a Steam |
 
 ## Scripts
 
@@ -211,7 +218,8 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 7. **Meu perfil** (`/perfil`): identidade, nível, favoritos, estatísticas, finanças privadas, conquistas e atividades. Edite em **Configurações**, onde também ficam foto, banner, título, privacidade e a prévia “como visitante”.
 8. **Diário** (`/diario`): registre sessões com duração (ou início e fim) e observações. Também dá para registrar pela página do jogo ou pelo card “Jogando atualmente”.
 9. **Coleções** (`/colecoes`), **Metas e conquistas** (`/conquistas`, `/metas`) e **Atividades** (`/atividades`).
-10. **Dados antigos.** Em “Importar dados antigos”, a página lê o `localStorage['jogos']` da versão anterior (só leitura) ou recebe o JSON exportado. Os jogos importados ficam marcados para revisão até você informar preço pago e loja.
+10. **Steam.** Em Configurações → **Conta Steam**, vincule a conta; depois, em Importar → **Steam**, escolha os jogos na prévia. Detalhes em [Importação da Steam](#importação-da-steam).
+11. **Dados antigos.** Em Importar → **Versão antiga**, a página lê o `localStorage['jogos']` da versão anterior (só leitura) ou recebe o JSON exportado. Os jogos importados ficam marcados para revisão até você informar preço pago e loja.
 
 ## API REST
 
@@ -222,11 +230,11 @@ POST   /api/auth/login                 { email, password }
 POST   /api/auth/logout
 GET    /api/auth/me                    { user | null, publicAppUrl }
 GET    /api/games?search=&platform=<slug>&platformId=&ownership=OWNED|WISHLIST|ALL
-             &status=&media=&categoryId=&storeId=&sort=&page=&pageSize=
+             &status=&media=&categoryId=&storeId=&source=MANUAL|STEAM&needsReview=&sort=&page=&pageSize=
 POST   /api/games                      JSON ou multipart (campo "data" + arquivo "cover")
 GET    /api/games/:id
 PATCH  /api/games/:id                  campos parciais, validados como registro completo
-DELETE /api/games/:id
+DELETE /api/games/:id?ignoreSteam=true   (ignoreSteam: não importar de novo da Steam)
 PATCH  /api/games/:id/featured         { isFeatured }
 PATCH  /api/games/:id/mark-purchased   { mediaType, paidPrice, store, originalPrice?, purchasedAt? }
 POST   /api/games/:id/images           multipart "images" (vários) ou JSON { url, isCover }
@@ -244,6 +252,11 @@ GET    /api/statistics/platforms
 GET    /api/statistics/stores?sort=count|savings|percent
 GET    /api/statistics/categories
 POST   /api/import/legacy              array do localStorage antigo (idempotente)
+POST   /api/games/:id/steam-fill       { overwrite? } completa com dados da loja Steam
+GET    /api/steam/account              (e PUT, DELETE, POST /lookup) conta Steam vinculada
+POST   /api/steam/preview | import | resync
+GET    /api/steam/jobs/:id             progresso do enriquecimento
+GET    /api/steam/ignored              (DELETE /:appid desfaz)
 GET    /api/health
 ```
 
@@ -294,8 +307,15 @@ Os testes da API aplicam as migrações num **banco separado** (`TEST_DATABASE_U
 | Desejos: histórico, alvo, conversão no mesmo registro | `server/tests/wishlist-advanced.test.js` |
 | Metas com progresso real | `server/tests/goals.test.js` |
 | Perfil público: somente leitura e só o autorizado | `server/tests/public.test.js` |
+| Steam: vínculo por ID64/link/apelido, sem chave, desvincular, isolamento | `server/tests/steam-account.test.js` |
+| Steam: cliente HTTP (backoff, chave fora dos erros) e download só da allowlist | `server/tests/steam-client.test.js` |
+| Steam: prévia, importação idempotente, XP retroativo, job, duplicados | `server/tests/steam-import.test.js` |
+| Steam: ressincronizar, horas com diário, ignorados, completar, perfil público | `server/tests/steam-resync.test.js` |
+| Metadados e filtro de origem | `server/tests/metadata.test.js` |
 
-Na interface: contrato do formulário, `TagInput`, estrelas, barra de XP, cartão de conquista, perfil público (só as seções enviadas pelo servidor), textos/datas do Player Hub e uma checagem de que nenhum código grava em `localStorage`, `sessionStorage` ou IndexedDB.
+Os testes da Steam não usam rede: o cliente é trocado por um falso (`server/tests/fixtures/steam.js`).
+
+Na interface: prévia da Steam (seleção, filtros, estados vazio/erro/carregando), formulário com os metadados, selo e exclusão com “Não importar de novo”, contrato do formulário, `TagInput`, estrelas, barra de XP, cartão de conquista, perfil público (só as seções enviadas pelo servidor), textos/datas do Player Hub e uma checagem de que nenhum código grava em `localStorage`, `sessionStorage` ou IndexedDB.
 
 ## Segurança
 
@@ -312,6 +332,7 @@ Na interface: contrato do formulário, `TagInput`, estrelas, barra de XP, cartã
   - arquivos órfãos apagados ao remover imagem ou jogo.
 - Helmet (CSP, `nosniff` etc.), sem `x-powered-by`.
 - Perfil público com allowlist de campos, 404 igual para perfil privado ou inexistente, rate limit e somente GET. As rotas administrativas exigem login sempre (o antigo `PUBLIC_READ` não abre mais nada).
+- Steam: só endereços fixos (`api.steampowered.com`, `store.steampowered.com`); imagens baixadas só de hosts da Steam numa allowlist (inclusive nos redirecionamentos), com tamanho máximo, timeout e o mesmo pipeline dos uploads. Texto da Steam é limpo (sem HTML) e validado com Zod. A `STEAM_API_KEY` nunca vai para logs, respostas ou para a página.
 - `.env`, `node_modules`, `dist`, `server/uploads`, `backups/` e `.pgdata/` ficam fora do Git.
 
 ## Produção
@@ -338,6 +359,42 @@ npm run dev
 ```
 
 A migração é aditiva: nada é apagado, as horas antigas viram saldo inicial e jogos já zerados ficam sem data de conclusão (a data real não é conhecida). Detalhes e reversão em [`docs/PLAYER_HUB.md`](docs/PLAYER_HUB.md#7-atualizar-uma-instalação-existente-v2--v3).
+
+## Importação da Steam
+
+Opcional. Cada usuário vincula a própria conta e importa a biblioteca; os jogos importados são jogos comuns (`source = STEAM`): dá para editar todos os campos (inclusive preço pago, loja, nota, avaliação, estado, categorias e imagens) e excluir como qualquer outro.
+
+### 1. Gerar a chave
+
+1. Entre em <https://steamcommunity.com/dev/apikey> com a sua conta Steam (a Steam exige que a conta tenha feito alguma compra).
+2. Em “Domínio”, qualquer nome serve (ex.: `localhost`). Aceite os termos e copie a chave de 32 caracteres.
+3. No `.env`, preencha `STEAM_API_KEY=<a chave>` e reinicie a API. A chave fica só no servidor.
+
+### 2. Privacidade da Steam
+
+A Steam só mostra os jogos de perfis com **Detalhes de jogos** como **Público** (Perfil → Editar perfil → Configurações de privacidade). Se estiver privado, a prévia explica isso em vez de mostrar uma lista vazia. Conquistas também dependem dessa opção.
+
+### 3. Usar
+
+1. **Configurações → Conta Steam**: informe o SteamID64, o link do perfil (`/profiles/…` ou `/id/…`) ou só o apelido. Confira nome e avatar e confirme.
+2. **Importar → Steam**: a prévia classifica cada jogo da conta em **novo**, **já na biblioteca**, **possível duplicado** (mesmo título de um jogo cadastrado à mão), **na lista de desejos**, **ignorado** ou **não é jogo** (DLC, demo, ferramenta, trilha sonora). Escolha os jogos, a plataforma e a loja de destino (padrão “Steam”), quantas screenshots baixar, se importa conquistas e se cria categorias pelos gêneros.
+   - Possível duplicado: **vincular** ao jogo existente (preenche só o que está vazio), importar como novo ou ignorar.
+   - Desejo: **Marcar como comprado** converte o mesmo registro e o vincula à Steam.
+3. Os jogos são criados na hora; descrição, imagens e conquistas chegam em segundo plano, com barra de progresso. Se a API for fechada no meio, ela continua de onde parou ao abrir de novo.
+4. **Ressincronizar** cria só os jogos que faltam e nunca sobrescreve o que você editou. A opção “atualizar horas e último acesso” só aumenta o total de horas (nunca diminui) e preserva o diário.
+5. No jogo: **Completar com dados da Steam** preenche só campos vazios; **Sobrescrever** pede confirmação.
+6. Excluir um jogo da Steam pergunta **Não importar de novo** (marcado por padrão). A lista de ignorados fica na tela da Steam e pode ser desfeita.
+
+### O que é importado e o que não é
+
+| Importado | Não importado (a Steam não fornece) |
+|---|---|
+| Nome, horas totais, horas nas últimas 2 semanas (definem “Jogando”), último acesso | Preço pago, preço original, data e loja da compra: o jogo fica “para revisar” e fora das somas de dinheiro até você completar |
+| Conquistas desbloqueadas / total | Nota, avaliação escrita e estado “zerado/abandonado” |
+| Descrição curta, gêneros (em português), desenvolvedora, distribuidora, lançamento, Metacritic | Sessões com data (as horas da Steam viram saldo sem data; nenhuma data é inventada) |
+| Capa (imagem grande da loja) e screenshots opcionais | Jogos do compartilhamento familiar e DLCs como itens separados |
+
+Não vira farm de XP: a importação roda a progressão em modo retroativo (conquistas sem avisos na tela) e registra **uma** atividade “Biblioteca Steam importada”. Steam ID, nome da conta e dados de sincronização **nunca** aparecem no perfil público. Detalhes técnicos em [`docs/PLAYER_HUB.md`](docs/PLAYER_HUB.md#8-importação-da-steam).
 
 ## Continuar o desenvolvimento
 

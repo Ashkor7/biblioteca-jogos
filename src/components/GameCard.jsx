@@ -7,7 +7,8 @@ import { useToast } from '../hooks/useToast.js';
 import { useDismiss } from '../hooks/useDismiss.js';
 import CoverImage from './CoverImage.jsx';
 import StatusBadge from './StatusBadge.jsx';
-import ConfirmDialog from './ConfirmDialog.jsx';
+import DeleteGameDialog from './DeleteGameDialog.jsx';
+import SteamBadge from './SteamBadge.jsx';
 import { StarRating } from './StarRating.jsx';
 import { formatMoney, formatDate, formatHours, mediaLabel } from '../utils/format.js';
 
@@ -44,7 +45,7 @@ export function GameMenu({ game, placement = 'bottom-full right-0 mb-1' }) {
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, wrapper, trigger);
 
-  const remove = useLibraryMutation(() => api.deleteGame(game.id), {
+  const remove = useLibraryMutation((options) => api.deleteGame(game.id, options), {
     onSuccess: () => {
       setConfirming(false);
       toast.success(`${game.title} foi excluído.`);
@@ -90,16 +91,15 @@ export function GameMenu({ game, placement = 'bottom-full right-0 mb-1' }) {
           </button>
         </div>
       )}
-      <ConfirmDialog
+      <DeleteGameDialog
+        game={game}
         open={confirming}
-        title={`Excluir ${game.title}?`}
-        confirmLabel="Excluir jogo"
         busy={remove.isPending}
-        onConfirm={() => remove.mutate()}
+        onConfirm={(options) => remove.mutate(options)}
         onCancel={() => setConfirming(false)}
       >
         O jogo, as imagens enviadas, as sessões do diário e o histórico de preços dele serão apagados. Não dá para desfazer.
-      </ConfirmDialog>
+      </DeleteGameDialog>
     </div>
   );
 }
@@ -124,6 +124,8 @@ export default function GameCard({ game, showPlatform = true, actions = true }) 
                   <FiAward aria-hidden="true" /> Destaque
                 </span>
               )}
+              {/* Dentro do link do cartão: selo sem link (a loja abre pelo detalhe ou pela lista) */}
+              <SteamBadge game={game} link={false} className="absolute bottom-2 right-2 bg-void/85 text-ink" />
               {wish && (
                 <span className="absolute bottom-2 left-2 rounded-md bg-magenta px-2 py-0.5 text-xs font-semibold text-[#22030f]">Desejado</span>
               )}
@@ -216,6 +218,7 @@ export function GameList({ games, showPlatform = true }) {
                     {!wish && game.mediaType && <span className="text-faint"> · {mediaLabel(game.mediaType)}</span>}
                     {game.store && <span className="text-faint"> · {game.store.name}</span>}
                   </p>
+                  {game.steam && <SteamBadge game={game} className="mt-0.5" />}
                 </div>
                 <div className="col-span-3 row-start-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-[3.75rem] sm:col-span-1 sm:row-start-auto sm:pl-0">
                   {wish ? (

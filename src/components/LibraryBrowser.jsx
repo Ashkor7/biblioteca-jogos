@@ -9,8 +9,8 @@ import { ErrorState, EmptyState } from './States.jsx';
 import { moneyToCents } from '../../shared/domain.js';
 
 const DEFAULTS = { sort: 'featured', page: '1' };
-const ADVANCED = ['platform', 'store', 'media', 'category', 'collection', 'rating', 'price'];
-const ADVANCED_KEYS = ['platform', 'storeId', 'media', 'categoryId', 'collectionId', 'minRating', 'minPrice', 'maxPrice'];
+const ADVANCED = ['platform', 'store', 'media', 'category', 'collection', 'rating', 'source', 'review', 'price'];
+const ADVANCED_KEYS = ['platform', 'storeId', 'media', 'categoryId', 'collectionId', 'minRating', 'source', 'needsReview', 'minPrice', 'maxPrice'];
 const COMPACT = ['platform', 'category'];
 
 const SORT_LABELS = {

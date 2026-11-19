@@ -27,7 +27,9 @@ import { useToast } from '../hooks/useToast.js';
 import CoverImage from '../components/CoverImage.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { StarRating } from '../components/StarRating.jsx';
-import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import DeleteGameDialog from '../components/DeleteGameDialog.jsx';
+import SteamBadge from '../components/SteamBadge.jsx';
+import GameSteamPanel, { GameMetadata } from '../components/GameSteamPanel.jsx';
 import PurchaseDialog from '../components/PurchaseDialog.jsx';
 import { LoadingState, ErrorState } from '../components/States.jsx';
 import {
@@ -62,7 +64,7 @@ function Details({ game }) {
 
   // Navega antes de invalidar: a página do jogo excluído não tenta recarregar.
   const remove = useMutation({
-    mutationFn: () => api.deleteGame(game.id),
+    mutationFn: (options) => api.deleteGame(game.id, options),
     onSuccess: () => {
       navigate(wish ? '/desejos' : '/', { replace: true });
       toast.success(`${game.title} foi excluído.`);
@@ -131,6 +133,7 @@ function Details({ game }) {
                 <FiAward aria-hidden="true" /> Em destaque
               </span>
             )}
+            <SteamBadge game={game} />
           </div>
           <h1 className="mt-3 text-[clamp(1.9rem,5vw,3rem)] font-bold break-words">{game.title}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -238,6 +241,9 @@ function Details({ game }) {
             </section>
           </div>
 
+          <GameMetadata game={game} />
+          {game.steam && user && <GameSteamPanel game={game} />}
+
           {!wish && <GameSessions game={game} onAdd={() => setDialog('session')} />}
 
           <section aria-labelledby="avaliacao" className="mt-7">
@@ -253,16 +259,15 @@ function Details({ game }) {
         </div>
       </div>
 
-      <ConfirmDialog
+      <DeleteGameDialog
+        game={game}
         open={confirmDelete}
-        title={`Excluir ${game.title}?`}
-        confirmLabel="Excluir jogo"
         busy={remove.isPending}
         onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => remove.mutate()}
+        onConfirm={(options) => remove.mutate(options)}
       >
         O jogo, suas imagens e avaliações saem do banco de dados e as estatísticas são recalculadas. Não dá para desfazer.
-      </ConfirmDialog>
+      </DeleteGameDialog>
 
       {dialog === 'collections' && <GameCollectionsDialog game={game} onClose={() => setDialog(null)} />}
       {dialog === 'session' && <SessionDialog gameId={game.id} onClose={() => setDialog(null)} />}

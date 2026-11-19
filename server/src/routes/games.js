@@ -5,9 +5,15 @@ import { parseOrThrow } from '../lib/validate.js';
 import { featuredSchema } from '../../../shared/schemas.js';
 import * as games from '../services/gameService.js';
 import * as images from '../services/imageService.js';
+import * as steamImport from '../services/steamImportService.js';
+import { steamLimiter } from './steam.js';
+import { z } from 'zod';
+
+const deleteQuery = z.object({ ignoreSteam: z.enum(['true', 'false']).optional() });
 
 export function gamesRouter() {
   const router = Router();
+  const steamLimited = steamLimiter();
 
   router.get('/', requireReader, async (req, res) => {
     res.json(await games.listGames(req.viewerId, req.query));
@@ -27,7 +33,8 @@ export function gamesRouter() {
   });
 
   router.delete('/:id', requireAuth, async (req, res) => {
-    await games.deleteGame(req.user.id, req.params.id);
+    const { ignoreSteam } = parseOrThrow(deleteQuery, req.query, 'Opção inválida');
+    await games.deleteGame(req.user.id, req.params.id, { ignoreSteam: ignoreSteam === 'true' });
     res.status(204).end();
   });
 
@@ -60,6 +67,11 @@ export function gamesRouter() {
 
   router.delete('/:id/images/:imageId', requireAuth, async (req, res) => {
     res.json(await images.deleteImage(req.user.id, req.params.id, req.params.imageId));
+  });
+
+  // Completa com dados da loja Steam (só campos vazios; overwrite=true sobrescreve).
+  router.post('/:id/steam-fill', requireAuth, steamLimited, async (req, res) => {
+    res.json(await steamImport.fillFromSteam(req.user.id, req.params.id, req.body));
   });
 
   return router;

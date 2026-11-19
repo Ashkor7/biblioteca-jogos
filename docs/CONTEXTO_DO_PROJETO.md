@@ -3,7 +3,7 @@
 Documento de passagem: o que já existe, como o ambiente do dono está montado, o que ficou pendente
 e como pedir as próximas atualizações. Atualize este arquivo ao fim de cada sessão de trabalho.
 
-**Última atualização:** 09/11/2026 · **Versão:** 3.0 (Player Hub) na branch `feature/player-hub-v3` (ainda não mesclada em `main`)
+**Última atualização:** 19/11/2026 · **Versão:** 3.0 em `main`; 3.1 (redesign Nexus Play, PR #2) e importação da Steam (branch `feature/steam-import`, feita a partir da 3.1) aguardando merge
 
 ## 1. Histórico resumido
 
@@ -16,7 +16,9 @@ e como pedir as próximas atualizações. Atualize este arquivo ao fim de cada s
 | `4778df9` | README completo |
 | `662ced6` | Atalho `abrir-biblioteca.cmd` |
 | `4fbe922` | Segurança: recusa segredos de exemplo, API só local por padrão, spec sem caminho pessoal |
-| `6719e49`…`85f04a9` | **3.0 Player Hub** (branch `feature/player-hub-v3`): backup lógico, migração `player_hub_v3`, API de perfil/diário/coleções/gamificação/finanças/perfil público, redesign da interface, correções do `npm audit` e documentação |
+| `6719e49`…`85f04a9` | **3.0 Player Hub** (branch `feature/player-hub-v3`, mesclada no PR #1): backup lógico, migração `player_hub_v3`, API de perfil/diário/coleções/gamificação/finanças/perfil público, redesign da interface, correções do `npm audit` e documentação |
+| `9f737b7` | **3.1 Redesign Nexus Play** (branch `feature/redesign-cyberpunk`, PR #2): só interface |
+| `cc3c272`…(fim da branch) | **Importação da Steam** (branch `feature/steam-import`, a partir da 3.1): migração `steam_import`, cliente Steam, vínculo, prévia, importação com job em segundo plano, ressincronizar, completar, ignorados, telas e documentação |
 
 A especificação original que guiou o trabalho está em `docs/ESPECIFICACAO_BIBLIOTECA_JOGOS_CYBERPUNK.md`.
 
@@ -63,6 +65,24 @@ Segue a referência "Painel de jogos cyberpunk Nexus Play" (pasta `biblioteca fo
 
 Funções da referência que **não existem** e não foram simuladas: loja, comunidade/amigos online, downloads/atualizações, "instalado", mensagens, "players online", tempo "até o próximo marco" por jogo e controles de janela (minimizar/fechar). O sino mostra atividades reais, não notificações de terceiros. Ficam como ideias de produto.
 
+### Importação da Steam (branch `feature/steam-import`, 19/11/2026)
+
+Referência técnica em `docs/PLAYER_HUB.md` §8; guia de uso no README (“Importação da Steam”).
+
+- [x] Migração `steam_import` (aditiva, com `down.sql`): `Game.source`, `steamAppId` com índice parcial único por dono, leituras da Steam, metadados (descrição, desenvolvedora, distribuidora, lançamento, Metacritic) e tabelas `SteamAccount`, `SteamAppCache`, `SteamIgnoredApp`, `SteamSyncJob`/`SteamSyncJobItem`. Índices parciais antigos preservados
+- [x] Backup antes da migração e migração aplicada no banco real do dono em 19/11/2026
+- [x] `STEAM_API_KEY` opcional e validada; sem ela a função aparece desativada (503 com explicação)
+- [x] Vínculo por SteamID64, link `/profiles/` ou `/id/` ou apelido, com confirmação de nome/avatar; desvincular mantendo ou não o vínculo dos jogos
+- [x] Prévia classificada (novo, já na biblioteca, possível duplicado, desejo, ignorado, não é jogo), com filtros, busca, “selecionar todos os novos” e opções
+- [x] Importação idempotente; enriquecimento em segundo plano retomável, com cache compartilhado, limite de frequência e backoff; barra de progresso real
+- [x] Duplicado → vincular ao jogo manual (só campos vazios); desejo → “Marcar como comprado” no mesmo registro
+- [x] Ressincronizar sem sobrescrever; horas pelo máximo sem tocar no diário; “Completar com dados da Steam” (sobrescrever só com confirmação)
+- [x] Excluir com “Não importar de novo” e lista de ignorados com desfazer
+- [x] XP retroativo sem avisos e uma atividade única; nada da Steam no perfil público
+- [x] Imagens só de hosts da Steam numa allowlist, magic bytes, UUID; texto externo limpo e validado
+- [x] Testes: 179 da API + 39 da interface, sem rede; `npm run check` passando; telas conferidas com Playwright (360 px e desktop) num banco de demonstração separado com a Steam falsa
+- [ ] **Teste real com a conta Steam do dono** (precisa da `STEAM_API_KEY` no `.env` e do Steam ID; fazer só com autorização)
+
 ## 3. Ambiente do dono (Windows)
 
 - Node.js + npm e Git instalados. **Docker e PostgreSQL não estão instalados**: o banco roda com `npm run db:embedded` (PostgreSQL 18 embutido via npm, dados em `.pgdata/`, porta 5433).
@@ -92,7 +112,14 @@ Funções da referência que **não existem** e não foram simuladas: loja, comu
 - A imagem `public/Biblioteca de Jogos Gamer.png` (logo original) aparece só no README: o texto escuro dela não tem contraste no tema escuro.
 - O orquestrador `logs/run.mjs` e os `.cmd` em `logs/` foram ferramentas da configuração assistida; a pasta `logs/` é ignorada pelo Git e pode ser apagada (contém uma senha antiga).
 
+- **Steam**: o tipo do app (DLC, ferramenta) só é conhecido na prévia depois de passar pelo cache; antes, só o nome denuncia trilhas sonoras/servidores/demos. O job roda dentro do processo da API (sem fila externa). `appdetails` tem limite baixo: bibliotecas grandes levam alguns minutos.
+- Banco `biblioteca_jogos_demo` (criado em 19/11/2026 para conferir as telas com a Steam falsa) pode ser apagado à vontade.
+
 ## 5. Ideias de próximas atualizações (fora do escopo já entregue)
+
+- Outras lojas (GOG, Epic, Xbox) no mesmo modelo de `source` + vínculo
+- Flag de privacidade (desligada por padrão) para mostrar “origem Steam” no perfil público
+- Ressincronização automática agendada da Steam
 
 - Exportar/importar CSV ou JSON e backup do banco
 - Arrastar e soltar para ordenar favoritos e coleções (hoje há botões subir/descer, acessíveis por teclado)

@@ -40,6 +40,7 @@ No Windows, `abrir-biblioteca.cmd` abre banco, API e página em três janelas.
 shared/domain.js        normalizeKey/slugify, moneyToCents, hoursToMinutes, rótulos PT-BR
 shared/schemas.js       buildGameSchema + validateGame (regras entre campos), demais esquemas
 shared/progression.js   curva de XP, XP_RULES, ACHIEVEMENTS, TITLES, tipos de atividade (só regras/textos)
+shared/steam.js         Steam: ler ID64/link/apelido, limpar texto externo, datas da loja, tipo do app (funções puras)
 server/prisma/          schema.prisma + migrations/ (a init tem CHECKs e índices parciais escritos à mão)
 server/src/app.js       montagem do Express (helmet, cors, cookies, rotas, /uploads, dist em produção)
 server/src/config.js    variáveis de ambiente validadas com Zod (falha cedo e em PT-BR)
@@ -47,8 +48,11 @@ server/src/routes/      auth.js, games.js, catalog.js (platforms, stores, catego
                         player.js (profile, favorites, sessions, collections, goals, progression, prices, finance, public)
 server/src/services/    gameService, imageService, catalogService, statisticsService, lookupService, legacyImportService, authService,
                         progressionService (XP/conquistas/metas), activityService, profileService, publicService (allowlist),
-                        sessionService, collectionService, favoriteService, goalService, wishlistService, timeService
-server/src/lib/         errors (AppError), validate (parseOrThrow/validateGameOrThrow), serialize (gameToDto), storage (uploads)
+                        sessionService, collectionService, favoriteService, goalService, wishlistService, timeService,
+                        steamClient (HTTP da Steam, setSteamClient p/ testes), steamAccountService, steamImportService,
+                        steamAppData (appdetails + cache), steamEnrichService, steamJobRunner (job em segundo plano)
+server/src/lib/         errors (AppError), validate (parseOrThrow/validateGameOrThrow), serialize (gameToDto), storage (uploads),
+                        remoteImage (download só de hosts da Steam na allowlist)
 server/tests/           testes de aceitação da API (fluxos A–I da especificação)
 src/pages/              Dashboard, Profile, Library, Diary, Collections/Collection, Achievements, Goals, Activities, Settings,
                         ProfilePreview, PublicProfile/PublicCollection (/u/:username), Platform, Wishlist, Statistics, GameForm...
@@ -77,6 +81,8 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 - **Favoritos ≠ destaque.** `FavoriteGame` (vários, ordenados) é independente de `Game.isFeatured` (um por dono).
 - **Referências entre usuários** são barradas por FKs compostas `(gameId, ownerId) → Game(id, ownerId)`; mantenha esse padrão em tabelas novas que apontem para jogos.
 - **Perfil público**: tudo privado por padrão e financeiro só com autorização explícita. A resposta de `/api/public` é montada por allowlist em `publicService`; nunca serialize o registro inteiro. Perfil privado e inexistente devolvem o mesmo 404. `PUBLIC_READ` está obsoleto e não deve voltar a abrir rotas administrativas.
+- **Steam** (detalhes em `docs/PLAYER_HUB.md` §8): só endereços fixos da Steam, nunca URL vinda do usuário; a `STEAM_API_KEY` nunca vai para logs, respostas ou frontend. Jogos importados são jogos comuns (`source=STEAM`). Ressincronizar **nunca** sobrescreve campos existentes; horas pela regra do máximo (`mergePlaytime`), sem tocar no diário nem no estado. Importação usa progressão retroativa e uma atividade `STEAM_IMPORTED` (fora do perfil público). Testes nunca usam rede: `setSteamClient(fakeSteamClient())` e `setRemoteImageFetch`.
+- **Zod 4**: `.default({})` num objeto devolve o objeto **sem** aplicar os defaults internos; use `.prefault({})`.
 - **Imagens**: tipo conferido por magic bytes, nome UUID gerado no servidor, arquivos apagados quando a imagem/jogo é removido. Nunca guardar Base64 no banco. Uma capa por jogo e um destaque por dono (índices parciais).
 
 ## Segurança

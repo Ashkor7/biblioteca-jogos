@@ -205,3 +205,62 @@ npm run dev
 ```
 
 Na primeira abertura, o perfil é criado como privado (username `jogador-xxxxxx`, sem nada do e-mail) e a biblioteca existente é processada retroativamente.
+
+## 8. Importação da Steam
+
+Migração: `server/prisma/migrations/20261119142617_steam_import/` (aditiva; reversão manual em `down.sql`).
+
+### Modelos
+
+| Modelo | Para quê | Detalhes importantes |
+|---|---|---|
+| `Game` (colunas novas) | Origem, vínculo e metadados | `source` (`MANUAL`/`STEAM`, padrão `MANUAL`). `steamAppId` único por dono quando não nulo (índice parcial `Game_one_steam_app_per_owner`, escrito à mão). Leituras da Steam: `steamPlaytimeMinutes`, `steamLastPlayedAt`, `steamSyncedAt`, `steamAchievementsUnlocked/Total` (CHECK desbloqueadas ≤ total). Metadados editáveis em qualquer jogo: `description` (1000), `developer`/`publisher` (120), `releaseDate` (DATE) ou `releaseDateText` (60, quando não há data exata), `metacriticScore` (0–100). |
+| `SteamAccount` | Vínculo (1:1 com o usuário) | `steamId64` (CHECK 17 dígitos), `personaName`, `avatarUrl`, `profileUrl`, `linkedAt`, `lastSyncAt`. |
+| `SteamAppCache` | Dados da loja normalizados | PK `appId`, compartilhado entre usuários, válido por `STEAM_CACHE_DAYS`. `found=false` guarda “sem página” para não consultar de novo. `data` já limpo e validado por `steamAppDetailsSchema`. |
+| `SteamIgnoredApp` | Não importar de novo | PK `(userId, appId)` + título para exibir. |
+| `SteamSyncJob` / `SteamSyncJobItem` | Enriquecimento em segundo plano | `kind` (`IMPORT`/`RESYNC`), `status`, `total/processed/failed` (CHECK coerentes), `options`, `summary` (contagens e últimos 20 erros, sem dados sensíveis). Um item por jogo (`ENRICH` ou `ACHIEVEMENTS`), sem FK para o jogo: se ele for excluído no meio, o item vira `SKIPPED`. |
+
+### Arquivos
+
+- `shared/steam.js`: lê ID64/link/apelido, limpa texto externo, interpreta datas da loja e o tipo do app.
+- `shared/schemas.js`: contratos Zod das rotas e do appdetails normalizado.
+- `server/src/services/steamClient.js`: HTTP com timeout, intervalo mínimo, backoff em 429/5xx e erros tipados; `setSteamClient` para testes.
+- `steamAccountService.js` (vínculo), `steamImportService.js` (prévia, importação, ressincronização, completar, ignorados), `steamAppData.js` (appdetails + cache), `steamEnrichService.js` (aplica dados só em campos vazios), `steamJobRunner.js` (fila no próprio processo, retomada em `startSteamWorker`).
+- `server/src/lib/remoteImage.js`: download só da allowlist; `setRemoteImageFetch` para testes.
+
+### Rotas
+
+Todas exigem sessão (`requireAuth`), passam por `verifyOrigin` e validam com Zod. As que chamam a Steam têm rate limit por usuário (`STEAM_RATE_LIMIT`). Sem `STEAM_API_KEY`: 503 `STEAM_NOT_CONFIGURED`.
+
+```text
+GET    /api/steam/account                 { enabled, disabledReason, account, ignoredCount, linkedGames, lastJob }
+POST   /api/steam/account/lookup          { input } → nome, avatar e visibilidade (não salva)
+PUT    /api/steam/account                 { steamId64 } (o servidor relê o perfil na Steam)
+DELETE /api/steam/account?keepAppIds=true|false   jogos ficam; false remove o vínculo de cada jogo
+POST   /api/steam/preview                 { includeFreeGames? } → itens classificados (só lê)
+POST   /api/steam/import                  { items: [{ appId, action: IMPORT|LINK|IGNORE, gameId? }], options }
+POST   /api/steam/resync                  { updatePlaytime?, options }
+GET    /api/steam/jobs/:id                progresso (total, processed, failed, percent, summary)
+GET    /api/steam/ignored
+DELETE /api/steam/ignored/:appid
+POST   /api/games/:id/steam-fill          { overwrite? }
+DELETE /api/games/:id?ignoreSteam=true    grava em SteamIgnoredApp
+```
+
+`options`: `platform` e `store` (padrão “Steam”, criados sob demanda), `includeFreeGames`, `screenshots` (0–10, limitado pelo espaço em `MAX_IMAGES_PER_GAME`), `importAchievements`, `genresAsCategories`. Atenção ao Zod 4: `options` usa `.prefault({})`, porque `.default({})` devolveria o objeto sem aplicar os padrões internos.
+
+### Regras
+
+- **Classificação da prévia** (nesta ordem): ignorado → já na biblioteca (mesmo `steamAppId`) → não é jogo (tipo do cache ≠ `game`, ou nome típico de trilha sonora/servidor/demo) → possível duplicado (jogo adquirido sem `steamAppId` com o mesmo `normalizeKey` do título) → na lista de desejos → novo. A prévia não chama a loja (appdetails), só `GetOwnedGames`.
+- **Mapeamento**: OWNED + DIGITAL, preços e `purchasedAt` nulos, `needsReview=true` (fora das somas de dinheiro), `playStatus` PLAYING se `playtime_2weeks > 0`, senão NOT_STARTED. Nome e horas vêm sempre da Steam, nunca do navegador.
+- **Horas**: ao criar, `legacyPlayMinutes = playTimeMinutes = playtime_forever`. Ao atualizar (vincular ou ressincronizar com a opção), `novoTotal = max(total atual, Steam)` e `legacy = novoTotal − Σ sessões`. Nunca diminui, nunca mexe no diário, nunca inventa data, nunca muda o estado.
+- **Enriquecimento** (job): appdetails em cache, só campos vazios; gêneros viram categorias só se o jogo não tem nenhuma; capa (`header_image`) e screenshots baixadas; se o download falha, fica a URL https da Steam. `overwrite` (só pelo botão, com confirmação) troca os metadados, põe a capa da Steam e soma os gêneros às categorias do usuário; título, preços, nota, avaliação e estado nunca mudam.
+- **Progressão**: importar e ressincronizar rodam `beginProgress` + `syncProgress({ retroactive: true })` na mesma transação; o job também, por item. Uma atividade `STEAM_IMPORTED` por importação (`dedupeKey steam-import:<jobId>`), nunca N `GAME_ADDED`.
+- **Privacidade**: `STEAM_IMPORTED` está em `PRIVATE_ACTIVITY_TYPES` e não sai em `/api/public`; o DTO público continua por allowlist (sem `source`, `steam`, Steam ID nem nome da conta). Não há flag para mostrar “origem Steam” publicamente.
+- **Isolamento**: tudo filtrado por `userId`; vincular só a jogo do próprio dono; jobs de outro usuário respondem 404.
+
+### Limitações conhecidas
+
+- `appdetails` não é documentado e tem limite baixo (por volta de 200 consultas a cada 5 minutos): bibliotecas grandes levam alguns minutos para completar. Em 429 persistente, o job pausa e tenta de novo.
+- A prévia só conhece o tipo do app (DLC, ferramenta…) depois que ele passou pelo cache. Antes disso, só o nome denuncia trilhas sonoras, servidores e demos; uma DLC com nome comum aparece como “novo”.
+- O job roda dentro do processo da API (não há fila externa). Com várias instâncias da API, cada uma retomaria os mesmos jobs pendentes.
