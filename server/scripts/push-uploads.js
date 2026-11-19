@@ -11,7 +11,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { SERVER_ROOT } from '../src/env.js';
 
-const manifestFile = process.argv[2];
+// npm roda o script dentro de server/: caminhos relativos valem a partir de onde o comando foi digitado.
+const manifestFile = process.argv[2] ? path.resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2]) : null;
 const site = (process.env.PUSH_SITE ?? '').replace(/\/$/, '');
 const email = process.env.PUSH_EMAIL;
 const password = process.env.PUSH_PASSWORD;

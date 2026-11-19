@@ -45,6 +45,8 @@ A cada push na `main`, o Render publica sozinho.
 
 ## 4. Levar a biblioteca do seu PC (opcional)
 
+> Use o **PowerShell** (no Prompt de Comando, `$env:` e `Remove-Item` não funcionam e o `&` da URL quebra o comando). Se for mandar print do terminal para alguém, cubra a URL do banco e a senha: a URL contém a senha do banco.
+
 Faça **antes** de criar qualquer conta no site: a restauração só roda com o banco vazio.
 
 1. No PC, com o banco local ligado (`npm run db:embedded`): `npm run db:backup`.
