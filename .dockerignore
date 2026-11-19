@@ -1,0 +1,15 @@
+# Nada de segredos, dados locais ou artefatos no contexto do Docker
+.git
+.env
+.env.*
+!.env.example
+node_modules
+server/node_modules
+dist
+.pgdata
+backups
+logs
+server/uploads
+.playwright-mcp
+coverage
+*.log

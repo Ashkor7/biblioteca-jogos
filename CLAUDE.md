@@ -5,7 +5,7 @@ Leia também `docs/CONTEXTO_DO_PROJETO.md` (estado atual, histórico e pendênci
 
 ## O que é
 
-Biblioteca pessoal de jogos de um único proprietário, com a marca **Nexus Play** (escolha do dono em 12/11/2026; logo de controle em `Layout.jsx`, nome em Orbitron). Monorepo com workspaces do npm:
+Biblioteca de jogos com várias contas (cadastro público em `/cadastro` quando `ALLOW_SIGNUP=true`; cada conta vê só os próprios dados), com a marca **Nexus Play** (escolha do dono em 12/11/2026; logo de controle em `Layout.jsx`, nome em Orbitron). Monorepo com workspaces do npm:
 
 - **Frontend na raiz** (`src/`, `index.html`, `vite.config.js`): React 19, Vite 8, Tailwind CSS 4, React Router 7, TanStack Query 5, React Hook Form, Recharts 3, react-icons (Feather `fi`).
 - **API em `server/`**: Node 20.19+ (o dono usa 24), Express 5, Prisma 6, PostgreSQL, Zod 4, Multer 2, bcryptjs, JWT em cookie, Helmet.
@@ -22,6 +22,8 @@ npm run db:migrate          # prisma migrate deploy
 npm run db:migrate:dev      # cria nova migração após mudar server/prisma/schema.prisma
 npm run admin:create        # cria/redefine o proprietário (ADMIN_EMAIL/ADMIN_PASSWORD do .env)
 npm run db:backup           # backup JSON consistente em backups/ (faça antes de migrar o banco real)
+npm run db:deploy           # prisma migrate deploy sem .env (produção/Railway: pre-deploy)
+npm run db:restore          # backup JSON → banco VAZIO (RESTORE_DATABASE_URL, --confirm); imagens via uploads:push
 npm run dev                 # API :3333 + Vite :5173 (ou dev:server / dev:client separados)
 npm run lint                # ESLint (src, server, shared)
 npm run test:client         # Vitest + Testing Library (jsdom), não precisa de banco
@@ -70,6 +72,7 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 
 - **Nada de persistência no navegador.** Proibido `localStorage.setItem`, `sessionStorage`, IndexedDB (ESLint e `src/test/no-browser-persistence.test.js` verificam). A única leitura de `localStorage` permitida é a importação legada em `ImportPage.jsx`.
 - **Posse ≠ mídia.** `ownershipStatus` (`OWNED`/`WISHLIST`) e `mediaType` (`PHYSICAL`/`DIGITAL`/null). Desejo nunca tem `mediaType`, `paidPrice` nem loja (há CHECK no banco).
+- **Várias contas, catálogo compartilhado.** `Platform`, `Store` e `Category` são globais (mesmo nome normalizado = mesmo registro). Nunca altere um registro compartilhado por ação de um usuário: renomear plataforma usada por outra pessoa move só os jogos de quem renomeou (`renamePlatform`). Todo resto é filtrado por dono.
 - **Plataforma ≠ loja.** Plataforma = ecossistema (Steam, Xbox); loja = vendedor (Nuuvem). Ambas, e as categorias, são criadas sob demanda com `normalizeKey` (sem caixa/acentos/pontuação) e removidas quando ficam órfãs (`pruneOrphans`, dentro da transação).
 - **Plataformas são dinâmicas.** Uma única rota `/plataformas/:slug` e um único componente. Nunca criar página por plataforma. Renomear grava o slug antigo em `PlatformSlugAlias` e a API responde `redirectTo`.
 - **Dinheiro** em `DECIMAL(12,2)`, trafega como string `"199.90"`; contas no SQL ou com `Prisma.Decimal`, nunca `float`. Entrada aceita `199,90` / `1.299,90`.
@@ -110,6 +113,10 @@ src/styles/index.css    tokens do tema (@theme) e componentes (.panel, .btn, .in
 
 - Alterar `server/prisma/schema.prisma` → `npm run db:migrate:dev` → **revisar o SQL gerado**: o Prisma não conhece os CHECKs e índices parciais da migração inicial e pode tentar removê-los. Se aparecer `DROP INDEX "GameImage_one_cover_per_game"` ou `"Game_one_featured_per_owner"`, apague essas linhas.
 - Testes da API usam `TEST_DATABASE_URL` (o nome do banco precisa conter "test"); o banco é truncado a cada teste.
+
+## Deploy
+
+Railway com `Dockerfile` + `railway.json` (pre-deploy `npm run db:deploy`, health `/api/health`, **1 réplica** por causa do job da Steam no processo). Imagens no volume (`UPLOAD_DIR=/data/uploads`). Passo a passo em `docs/DEPLOY_RAILWAY.md`.
 
 ## Git
 

@@ -176,6 +176,8 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 | `COOKIE_SECURE` | `auto` | `Secure` só em produção |
 | `TRUST_PROXY` | `false` | Use `true` atrás de um proxy reverso |
 | `LOGIN_RATE_LIMIT` | `10` | Tentativas de login a cada 15 min por IP |
+| `ALLOW_SIGNUP` | `false` | Cadastro público em `/cadastro`. Desligado, contas só por `npm run admin:create` |
+| `SIGNUP_RATE_LIMIT` | `5` | Cadastros por hora, por IP |
 | `UPLOAD_DIR` | `server/uploads` | Onde as imagens são gravadas |
 | `MAX_UPLOAD_MB` | `5` | Tamanho máximo por imagem |
 | `MAX_IMAGES_PER_GAME` | `20` | Limite da galeria |
@@ -209,7 +211,7 @@ Todas ficam em um único `.env` na raiz, lido pela API, pelo Prisma e pelo Docke
 
 ## Como usar
 
-1. **Entre** em `/login` com o e-mail e a senha do proprietário.
+1. **Entre** em `/login`. Com `ALLOW_SIGNUP=true`, qualquer pessoa cria a própria conta em `/cadastro`; cada conta tem a sua biblioteca, perfil e progressão.
 2. **Adicione um jogo** com o botão “Adicionar jogo”. Escolha **Físico**, **Digital** ou **Lista de desejos** e digite a plataforma (ex.: `Xbox`). Para jogos adquiridos, preço original, preço pago e loja são obrigatórios.
 3. **A plataforma aparece no menu.** O link `Xbox` surge automaticamente e leva a `/plataformas/xbox`. Outros jogos de “xbox” (qualquer caixa ou acento) caem na mesma página. A página tem busca, filtros de estado, mídia e categoria, ordenação, resumo local e uma aba de desejos daquela plataforma. Para renomear uma plataforma, use o botão na página dela: o endereço antigo continua funcionando e redireciona. Uma plataforma que fica sem jogos some do menu.
 4. **Edite os detalhes** pela página do jogo, em “Editar”: estrelas, avaliação escrita, categorias (tags livres, sem lista pronta), estado, horas (aceita `12,5`) e a galeria de imagens.
@@ -227,6 +229,7 @@ Todas as rotas ficam sob `/api`. As respostas de erro seguem o formato `{ "error
 
 ```text
 POST   /api/auth/login                 { email, password }
+POST   /api/auth/register              { email, password } (só com ALLOW_SIGNUP=true; já entra)
 POST   /api/auth/logout
 GET    /api/auth/me                    { user | null, publicAppUrl }
 GET    /api/games?search=&platform=<slug>&platformId=&ownership=OWNED|WISHLIST|ALL
@@ -298,6 +301,7 @@ Os testes da API aplicam as migrações num **banco separado** (`TEST_DATABASE_U
 | F: números exatos do exemplo da especificação | `server/tests/statistics.test.js` |
 | G: edição e exclusão sem órfãos | `server/tests/games.test.js` |
 | H: anônimo não escreve; CSRF; isolamento entre usuários | `server/tests/auth.test.js` |
+| Cadastro público, isolamento entre contas e plataforma compartilhada | `server/tests/signup.test.js` |
 | Importação legada idempotente | `server/tests/legacy.test.js` |
 | Perfil, avatar/banner, privacidade, autorização | `server/tests/profile.test.js` |
 | Favoritos e coleções (ordem, posse, exclusão sem perder jogos) | `server/tests/collections.test.js` |
@@ -336,6 +340,8 @@ Na interface: prévia da Steam (seleção, filtros, estados vazio/erro/carregand
 - `.env`, `node_modules`, `dist`, `server/uploads`, `backups/` e `.pgdata/` ficam fora do Git.
 
 ## Produção
+
+**Railway:** passo a passo em [`docs/DEPLOY_RAILWAY.md`](docs/DEPLOY_RAILWAY.md) (Dockerfile e `railway.json` já estão no repositório, inclusive como levar a biblioteca do seu PC com `db:restore` e `uploads:push`).
 
 ```powershell
 npm run build
