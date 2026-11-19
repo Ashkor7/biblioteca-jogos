@@ -4,7 +4,7 @@ import { AppError, notFound } from '../lib/errors.js';
 import { parseOrThrow, assertUuid } from '../lib/validate.js';
 import { normalizeKey } from '../../../shared/domain.js';
 import { platformRenameSchema } from '../../../shared/schemas.js';
-import { uniquePlatformSlug } from './lookupService.js';
+import { uniquePlatformSlug, findOrCreatePlatform, pruneOrphans } from './lookupService.js';
 
 async function platformCounts(viewerId, platformIds = null) {
   const rows = await prisma.game.groupBy({
@@ -71,7 +71,23 @@ export async function renamePlatform(viewerId, id, body) {
     if (!owns) throw notFound('Plataforma');
     const normalizedName = normalizeKey(name);
     const clash = await tx.platform.findUnique({ where: { normalizedName } });
-    if (clash && clash.id !== id) {
+    // Plataformas são compartilhadas entre usuários (mesmo nome = mesmo registro). Se outra
+    // pessoa também usa esta plataforma, ou se o nome novo já é de uma plataforma que só
+    // outras pessoas usam, renomear não pode mexer no registro compartilhado: os jogos
+    // deste usuário passam para a plataforma do nome novo.
+    const sharedWithOthers = (await tx.game.count({ where: { platformId: id, ownerId: { not: viewerId } } })) > 0;
+    const clashIsMine = clash && clash.id !== id && (await tx.game.count({ where: { platformId: clash.id, ownerId: viewerId } })) > 0;
+    if ((sharedWithOthers || (clash && clash.id !== id)) && !clashIsMine) {
+      const target = clash && clash.id !== id ? clash : await findOrCreatePlatform(tx, name);
+      if (target.id !== id) {
+        await tx.game.updateMany({ where: { platformId: id, ownerId: viewerId }, data: { platformId: target.id } });
+        await pruneOrphans(tx);
+        return { id: target.id, name: target.name, slug: target.slug, previousSlug: platform.slug };
+      }
+      // Mesma plataforma compartilhada (só mudou maiúscula/acento): a grafia é de todos, não muda.
+      return { id, name: platform.name, slug: platform.slug, previousSlug: platform.slug };
+    }
+    if (clashIsMine) {
       throw new AppError(409, `Já existe a plataforma "${clash.name}"`, {
         fields: { name: 'Esse nome já está em uso' },
       });

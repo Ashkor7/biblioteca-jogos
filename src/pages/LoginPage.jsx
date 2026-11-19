@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 
 export default function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, signupEnabled } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,7 +37,7 @@ export default function LoginPage() {
         <form onSubmit={submit} noValidate className="panel-body space-y-5 p-6 sm:p-8">
           <div>
             <h1 className="text-3xl font-bold">Entrar</h1>
-            <p className="mt-2 text-sm text-muted">Acesso do proprietário da biblioteca. Visitantes não podem alterar dados.</p>
+            <p className="mt-2 text-sm text-muted">Entre para ver e organizar a sua biblioteca.</p>
           </div>
           {errors._ && (
             <p role="alert" className="border border-danger/50 bg-danger-soft px-3 py-2 text-sm text-danger">
@@ -90,9 +90,15 @@ export default function LoginPage() {
           <button type="submit" className="btn btn-primary w-full" disabled={busy}>
             {busy ? 'Entrando…' : 'Entrar'}
           </button>
-          <p className="text-xs text-faint">
-            Primeiro acesso? Crie o proprietário no terminal com <code className="num text-muted">npm run admin:create</code>.
-          </p>
+          {signupEnabled ? (
+            <p className="text-center text-sm text-muted">
+              Ainda não tem conta? <Link to="/cadastro">Criar conta</Link>
+            </p>
+          ) : (
+            <p className="text-xs text-faint">
+              Primeiro acesso? Crie o proprietário no terminal com <code className="num text-muted">npm run admin:create</code>.
+            </p>
+          )}
         </form>
       </div>
     </div>

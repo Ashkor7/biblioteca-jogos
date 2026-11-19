@@ -54,6 +54,10 @@ const schema = z.object({
   LEGACY_IMPORT_MAX_MB: z.coerce.number().positive().max(200).default(30),
   TRUST_PROXY: bool(false),
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(10),
+  // Cadastro público de novos usuários. Desligado por padrão (uso pessoal).
+  ALLOW_SIGNUP: bool(false),
+  // Cadastros por hora, por IP.
+  SIGNUP_RATE_LIMIT: z.coerce.number().int().positive().default(5),
   // --- Steam (opcional). Sem chave, a importação aparece desativada e a API responde 503.
   STEAM_API_KEY: z
     .string()

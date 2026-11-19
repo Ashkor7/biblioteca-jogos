@@ -442,6 +442,24 @@ export const loginSchema = z.object({
   password: z.string({ error: 'Informe a senha' }).min(1, 'Informe a senha').max(200),
 });
 
+/** Cadastro público (quando ALLOW_SIGNUP=true). A senha é conferida de novo no servidor. */
+export const registerSchema = z
+  .object({
+    email: loginSchema.shape.email,
+    password: z
+      .string({ error: 'Crie uma senha' })
+      .min(LIMITS.passwordMin, `Use pelo menos ${LIMITS.passwordMin} caracteres`)
+      .max(200, 'Senha longa demais'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password.trim().toLowerCase() === data.email) {
+      ctx.addIssue({ code: 'custom', path: ['password'], message: 'A senha não pode ser o próprio e-mail' });
+    }
+    if (new Set(data.password).size <= 2) {
+      ctx.addIssue({ code: 'custom', path: ['password'], message: 'Use uma senha menos previsível' });
+    }
+  });
+
 export const platformRenameSchema = z.object({
   name: lookupName('Informe o novo nome da plataforma'),
 });
